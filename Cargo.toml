@@ -1,0 +1,29 @@
+[package]
+name = "bex"
+version = "0.1.0"
+edition = "2024"
+description = "Bloomee Extensions (BEX) — plugin SDK CLI"
+
+[dependencies]
+# CLI
+anyhow    = "1.0"
+clap      = { version = "4", features = ["derive"] }
+inquire   = "0.6"
+serde     = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+time = { version = "0.3", features = ["formatting"] }
+
+# Packing
+tar  = "0.4"
+zstd = "0.13"
+
+# HTTP (used by embedded hosts for making requests on behalf of plugins)
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "blocking", "cookies"] }
+
+# Random number support in hosts
+rand = "0.8"
+
+# Embedded WASM hosts (same version as the standalone hosts)
+wasmtime       = { version = "21.0.0", features = ["component-model"] }
+wasmtime-wasi  = "21.0.0"
+
