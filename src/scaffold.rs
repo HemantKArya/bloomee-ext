@@ -105,6 +105,10 @@ pub fn run_create() -> Result<()> {
         .prompt()
         .unwrap_or_default();
     let description = Text::new("Short description:").prompt()?;
+    let thumbnail_url = Text::new("Thumbnail URL (optional, Enter to skip):")
+        .with_default("")
+        .prompt()
+        .unwrap_or_default();
 
     println!("\nCreating `{}`…", plugin_name);
 
@@ -165,6 +169,11 @@ debug = false
         .collect::<String>();
     let plugin_id = plugin_name.replace('-', "");
     let timestamp = current_timestamp();
+    let maybe_thumbnail = if thumbnail_url.is_empty() {
+        "null".to_string()
+    } else {
+        format!("\"{}\"", thumbnail_url)
+    };
     let maybe_url = if publisher_url.is_empty() {
         String::new()
     } else {
@@ -190,7 +199,8 @@ debug = false
   "description": "{desc}"{resolver_field},
   "manifest_version": "1.0",
   "created_at": "{timestamp}",
-  "last_updated": "{timestamp}"
+  "last_updated": "{timestamp}",
+  "thumbnail_url": {maybe_thumbnail}
 }}
 "#,
         archetype = archetype,
@@ -203,6 +213,7 @@ debug = false
         maybe_contact = maybe_contact,
         resolver_field = resolver_field,
         timestamp = timestamp,
+        maybe_thumbnail = maybe_thumbnail,
     );
 
     // ── src/lib.rs template ───────────────────────────────────────────────

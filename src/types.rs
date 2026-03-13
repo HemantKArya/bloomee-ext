@@ -48,6 +48,7 @@ pub struct Manifest {
     pub resolver: bool,
     pub created_at: Option<String>,
     pub last_updated: Option<String>,
+    pub thumbnail_url: Option<String>,
     // The runtime always expects the built component to be named `plugin.wasm`.
     // The manifest no longer includes an `entry` field.
 }
