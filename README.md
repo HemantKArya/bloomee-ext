@@ -37,7 +37,7 @@ bex update [path]
 - `bex pack [PATH]`: Bundle the compiled code and manifest into a distributable `.bex` file.
 - `bex pack-all`: (Alias: `pack_all`) Automated build/pack cycle for multiple plugins in a "factory" repository.
 - `bex factory init`: Initialize a new plugin-factory with workflow files and gitignore rules.
-- `bex update`: Updates the plugins version by +1 and time stamp to latest.
+- `bex update [PATH]`: Updates the plugins version by +1 and time stamp to latest.
 
 ## 📦 GitHub Actions & Releases
 
