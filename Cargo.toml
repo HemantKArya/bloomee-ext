@@ -27,3 +27,12 @@ rand = "0.8"
 wasmtime       = { version = "21.0.0", features = ["component-model"] }
 wasmtime-wasi  = "21.0.0"
 
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+debug = false
+

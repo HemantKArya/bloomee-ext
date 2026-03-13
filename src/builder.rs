@@ -41,8 +41,10 @@ pub fn run_build_at(debug: bool, dir: &Path) -> Result<()> {
 
     // ── Compile to WASM component ─────────────────────────────────────────
     let profile = if debug { "debug" } else { "release" };
-    println!("[2/3] Compiling {} ({}) — {}",
-        manifest.name, manifest.plugin_type, profile);
+    println!(
+        "[2/3] Compiling {} ({}) — {}",
+        manifest.name, manifest.plugin_type, profile
+    );
 
     let mut cargo_args = vec!["component", "build", "--target", "wasm32-unknown-unknown"];
     if !debug {
@@ -133,8 +135,7 @@ fn locate_wasm(dir: &Path, crate_name: &str, profile: &str) -> Result<PathBuf> {
     if out_dir.exists() {
         for entry in fs::read_dir(&out_dir)?.flatten() {
             let p = entry.path();
-            if p.extension().map_or(false, |e| e == "wasm")
-                && !p.to_string_lossy().contains(".d.")
+            if p.extension().map_or(false, |e| e == "wasm") && !p.to_string_lossy().contains(".d.")
             {
                 return Ok(p);
             }

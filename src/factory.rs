@@ -53,10 +53,13 @@ fn write_managed_file(path: &Path, content: &str, force: bool) -> Result<&'stati
 
     if existed_before {
         if path.is_dir() {
-            anyhow::bail!("Expected a file but found a directory at {}", path.display());
+            anyhow::bail!(
+                "Expected a file but found a directory at {}",
+                path.display()
+            );
         }
-        let existing = fs::read_to_string(path)
-            .with_context(|| format!("reading {}", path.display()))?;
+        let existing =
+            fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
         if existing == content {
             return Ok("unchanged");
         }
@@ -76,7 +79,10 @@ fn write_managed_file(path: &Path, content: &str, force: bool) -> Result<&'stati
 
 fn update_gitignore(path: &Path) -> Result<()> {
     if path.exists() && path.is_dir() {
-        anyhow::bail!("Expected a file but found a directory at {}", path.display());
+        anyhow::bail!(
+            "Expected a file but found a directory at {}",
+            path.display()
+        );
     }
     let content = if path.exists() {
         fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?
@@ -84,28 +90,27 @@ fn update_gitignore(path: &Path) -> Result<()> {
         String::new()
     };
 
-    let updated = if let (Some(s), Some(e)) =
-        (content.find(GITIGNORE_START), content.find(GITIGNORE_END))
-    {
-        let mut out = String::new();
-        let before = content[..s].trim_end();
-        if !before.is_empty() {
-            out.push_str(before);
-            out.push_str("\n\n");
-        }
-        out.push_str(GITIGNORE_BLOCK.trim_end());
-        let after = content[e + GITIGNORE_END.len()..].trim();
-        if !after.is_empty() {
-            out.push_str("\n\n");
-            out.push_str(after);
-        }
-        out.push('\n');
-        out
-    } else if content.trim().is_empty() {
-        format!("{}\n", GITIGNORE_BLOCK.trim_end())
-    } else {
-        format!("{}\n\n{}\n", content.trim_end(), GITIGNORE_BLOCK.trim_end())
-    };
+    let updated =
+        if let (Some(s), Some(e)) = (content.find(GITIGNORE_START), content.find(GITIGNORE_END)) {
+            let mut out = String::new();
+            let before = content[..s].trim_end();
+            if !before.is_empty() {
+                out.push_str(before);
+                out.push_str("\n\n");
+            }
+            out.push_str(GITIGNORE_BLOCK.trim_end());
+            let after = content[e + GITIGNORE_END.len()..].trim();
+            if !after.is_empty() {
+                out.push_str("\n\n");
+                out.push_str(after);
+            }
+            out.push('\n');
+            out
+        } else if content.trim().is_empty() {
+            format!("{}\n", GITIGNORE_BLOCK.trim_end())
+        } else {
+            format!("{}\n\n{}\n", content.trim_end(), GITIGNORE_BLOCK.trim_end())
+        };
 
     fs::write(path, updated).with_context(|| format!("writing {}", path.display()))
 }
@@ -147,7 +152,10 @@ fn resolve_or_create_root(dir: Option<&str>) -> Result<PathBuf> {
 fn ensure_directory(path: &Path) -> Result<()> {
     if path.exists() {
         if !path.is_dir() {
-            anyhow::bail!("Expected a directory but found a file at {}", path.display());
+            anyhow::bail!(
+                "Expected a directory but found a file at {}",
+                path.display()
+            );
         }
         return Ok(());
     }

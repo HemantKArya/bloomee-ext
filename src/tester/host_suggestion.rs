@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
-use wasmtime::component::{bindgen, Component, Linker, ResourceTable};
+use wasmtime::component::{Component, Linker, ResourceTable, bindgen};
 use wasmtime::{Config, Engine, Store};
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiView};
 
@@ -55,13 +55,20 @@ impl HostState {
         })
     }
     fn persist(&self) {
-        PersistentStorage { entries: self.storage.clone() }.save(&self.storage_path);
+        PersistentStorage {
+            entries: self.storage.clone(),
+        }
+        .save(&self.storage_path);
     }
 }
 
 impl WasiView for HostState {
-    fn table(&mut self) -> &mut ResourceTable { &mut self.table }
-    fn ctx(&mut self) -> &mut WasiCtx { &mut self.wasi }
+    fn table(&mut self) -> &mut ResourceTable {
+        &mut self.table
+    }
+    fn ctx(&mut self) -> &mut WasiCtx {
+        &mut self.wasi
+    }
 }
 
 impl component::search_suggestion_provider::utils::Host for HostState {
@@ -71,40 +78,60 @@ impl component::search_suggestion_provider::utils::Host for HostState {
         options: component::search_suggestion_provider::utils::RequestOptions,
     ) -> Result<component::search_suggestion_provider::utils::HttpResponse, String> {
         let method = match options.method {
-            component::search_suggestion_provider::utils::HttpMethod::Get  => reqwest::Method::GET,
+            component::search_suggestion_provider::utils::HttpMethod::Get => reqwest::Method::GET,
             component::search_suggestion_provider::utils::HttpMethod::Post => reqwest::Method::POST,
-            component::search_suggestion_provider::utils::HttpMethod::Put  => reqwest::Method::PUT,
-            component::search_suggestion_provider::utils::HttpMethod::Delete => reqwest::Method::DELETE,
+            component::search_suggestion_provider::utils::HttpMethod::Put => reqwest::Method::PUT,
+            component::search_suggestion_provider::utils::HttpMethod::Delete => {
+                reqwest::Method::DELETE
+            }
             component::search_suggestion_provider::utils::HttpMethod::Head => reqwest::Method::HEAD,
-            component::search_suggestion_provider::utils::HttpMethod::Patch => reqwest::Method::PATCH,
-            component::search_suggestion_provider::utils::HttpMethod::Options => reqwest::Method::OPTIONS,
+            component::search_suggestion_provider::utils::HttpMethod::Patch => {
+                reqwest::Method::PATCH
+            }
+            component::search_suggestion_provider::utils::HttpMethod::Options => {
+                reqwest::Method::OPTIONS
+            }
         };
         let mut req = self.http_client.request(method, &url);
         if let Some(t) = options.timeout_seconds {
             req = req.timeout(std::time::Duration::from_secs(t as u64));
         }
         if let Some(headers) = options.headers {
-            for (k, v) in headers { req = req.header(&k, &v); }
+            for (k, v) in headers {
+                req = req.header(&k, &v);
+            }
         }
-        if let Some(body) = options.body { req = req.body(body); }
+        if let Some(body) = options.body {
+            req = req.body(body);
+        }
         match req.send() {
             Ok(resp) => {
                 let status = resp.status().as_u16();
-                let headers = resp.headers().iter()
+                let headers = resp
+                    .headers()
+                    .iter()
                     .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
                     .collect();
                 let body = resp.bytes().map(|b| b.to_vec()).unwrap_or_default();
-                Ok(component::search_suggestion_provider::utils::HttpResponse { status, headers, body })
+                Ok(component::search_suggestion_provider::utils::HttpResponse {
+                    status,
+                    headers,
+                    body,
+                })
             }
             Err(e) => Err(e.to_string()),
         }
     }
 
-    fn random_number(&mut self) -> u64 { rand::random() }
+    fn random_number(&mut self) -> u64 {
+        rand::random()
+    }
 
     fn current_unix_timestamp(&mut self) -> u64 {
         std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
     }
 
     fn storage_set(&mut self, key: String, value: String) -> bool {
@@ -119,7 +146,9 @@ impl component::search_suggestion_provider::utils::Host for HostState {
 
     fn storage_delete(&mut self, key: String) -> bool {
         let existed = self.storage.remove(&key).is_some();
-        if existed { self.persist(); }
+        if existed {
+            self.persist();
+        }
         existed
     }
 
@@ -137,10 +166,16 @@ pub fn run(wasm_path: &Path) -> Result<()> {
     SearchSuggestionProvider::add_to_linker(&mut linker, |s| s)?;
     wasmtime_wasi::add_to_linker_sync(&mut linker)?;
 
-    let stem = wasm_path.file_stem().and_then(|s| s.to_str()).unwrap_or("plugin");
+    let stem = wasm_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("plugin");
     let storage_path = PathBuf::from(format!(".bex-storage-{stem}.json"));
     let loaded = PersistentStorage::load(&storage_path).entries.len();
-    println!("  Storage: {} ({loaded} cached entries)", storage_path.display());
+    println!(
+        "  Storage: {} ({loaded} cached entries)",
+        storage_path.display()
+    );
 
     let component = Component::from_file(&engine, wasm_path)?;
     let mut store = Store::new(&engine, HostState::new(storage_path)?);
@@ -158,7 +193,9 @@ pub fn run(wasm_path: &Path) -> Result<()> {
             Some(Ok(l)) => l.trim().to_string(),
             _ => break,
         };
-        if line.is_empty() { continue; }
+        if line.is_empty() {
+            continue;
+        }
 
         let parts: Vec<&str> = line.splitn(2, ' ').collect();
         let cmd = parts[0];
@@ -176,25 +213,59 @@ pub fn run(wasm_path: &Path) -> Result<()> {
                 println!("  default                 — default query suggestions");
                 println!("  default-entities        — default entity suggestions");
                 println!("  storage                 — show stored keys");
-                println!("  storage-set <key> <val> — set a storage key (e.g. to inject API tokens)");
+                println!(
+                    "  storage-set <key> <val> — set a storage key (e.g. to inject API tokens)"
+                );
                 println!("  storage-del <key>       — delete a storage key");
                 println!("  clear                   — clear all plugin storage");
                 println!("  exit/q                  — exit");
             }
-            "search" if !arg.is_empty() => call_suggestions(&bindings, &mut store, arg, false, None, 10)?,
-            "entities" if !arg.is_empty() => call_suggestions(&bindings, &mut store, arg, true, None, 10)?,
+            "search" if !arg.is_empty() => {
+                call_suggestions(&bindings, &mut store, arg, false, None, 10)?
+            }
+            "entities" if !arg.is_empty() => {
+                call_suggestions(&bindings, &mut store, arg, true, None, 10)?
+            }
             "tracks" if !arg.is_empty() => call_suggestions(
-                &bindings, &mut store, arg, true,
-                Some(vec![exports::component::search_suggestion_provider::types::EntityType::Track]), 10)?,
+                &bindings,
+                &mut store,
+                arg,
+                true,
+                Some(vec![
+                    exports::component::search_suggestion_provider::types::EntityType::Track,
+                ]),
+                10,
+            )?,
             "artists" if !arg.is_empty() => call_suggestions(
-                &bindings, &mut store, arg, true,
-                Some(vec![exports::component::search_suggestion_provider::types::EntityType::Artist]), 10)?,
+                &bindings,
+                &mut store,
+                arg,
+                true,
+                Some(vec![
+                    exports::component::search_suggestion_provider::types::EntityType::Artist,
+                ]),
+                10,
+            )?,
             "albums" if !arg.is_empty() => call_suggestions(
-                &bindings, &mut store, arg, true,
-                Some(vec![exports::component::search_suggestion_provider::types::EntityType::Album]), 10)?,
+                &bindings,
+                &mut store,
+                arg,
+                true,
+                Some(vec![
+                    exports::component::search_suggestion_provider::types::EntityType::Album,
+                ]),
+                10,
+            )?,
             "playlists" if !arg.is_empty() => call_suggestions(
-                &bindings, &mut store, arg, true,
-                Some(vec![exports::component::search_suggestion_provider::types::EntityType::Playlist]), 10)?,
+                &bindings,
+                &mut store,
+                arg,
+                true,
+                Some(vec![
+                    exports::component::search_suggestion_provider::types::EntityType::Playlist,
+                ]),
+                10,
+            )?,
             "default" => call_default_suggestions(&bindings, &mut store, false, 10)?,
             "default-entities" => call_default_suggestions(&bindings, &mut store, true, 10)?,
             "storage-set" | "sset" => {
@@ -206,7 +277,11 @@ pub fn run(wasm_path: &Path) -> Result<()> {
                 } else {
                     store.data_mut().storage.insert(key.clone(), val.clone());
                     store.data_mut().persist();
-                    let preview = if val.len() > 40 { format!("{}…", &val[..40]) } else { val.clone() };
+                    let preview = if val.len() > 40 {
+                        format!("{}…", &val[..40])
+                    } else {
+                        val.clone()
+                    };
                     println!("Stored: {key} = {preview}");
                 }
             }
@@ -217,7 +292,10 @@ pub fn run(wasm_path: &Path) -> Result<()> {
                 } else {
                     let existed = store.data_mut().storage.remove(&key).is_some();
                     store.data_mut().persist();
-                    println!("{}: {key}", if existed { "Deleted" } else { "Key not found" });
+                    println!(
+                        "{}: {key}",
+                        if existed { "Deleted" } else { "Key not found" }
+                    );
                 }
             }
             "clear" => {
@@ -235,7 +313,11 @@ pub fn run(wasm_path: &Path) -> Result<()> {
                     sorted_keys.sort();
                     for k in &sorted_keys {
                         let v = &store.data().storage[k];
-                        let preview = if v.len() > 80 { format!("{}…({}B)", &v[..80], v.len()) } else { v.clone() };
+                        let preview = if v.len() > 80 {
+                            format!("{}…({}B)", &v[..80], v.len())
+                        } else {
+                            v.clone()
+                        };
                         println!("  {k}: {preview}");
                     }
                 }
@@ -255,14 +337,22 @@ fn call_suggestions(
     limit: u8,
 ) -> Result<()> {
     let opts = exports::component::search_suggestion_provider::types::SuggestionOptions {
-        limit: Some(limit), include_entities, allowed_types,
+        limit: Some(limit),
+        include_entities,
+        allowed_types,
     };
-    match bindings.component_search_suggestion_provider_suggestion_api()
-        .call_get_suggestions(store, query, &opts)? {
+    match bindings
+        .component_search_suggestion_provider_suggestion_api()
+        .call_get_suggestions(store, query, &opts)?
+    {
         Ok(list) => {
             println!("\nSuggestions for '{query}' — {} results:", list.len());
-            for s in &list { print_suggestion(s); }
-            if list.is_empty() { println!("  (no results)"); }
+            for s in &list {
+                print_suggestion(s);
+            }
+            if list.is_empty() {
+                println!("  (no results)");
+            }
         }
         Err(e) => println!("Plugin error: {e}"),
     }
@@ -276,14 +366,22 @@ fn call_default_suggestions(
     limit: u8,
 ) -> Result<()> {
     let opts = exports::component::search_suggestion_provider::types::SuggestionOptions {
-        limit: Some(limit), include_entities, allowed_types: None,
+        limit: Some(limit),
+        include_entities,
+        allowed_types: None,
     };
-    match bindings.component_search_suggestion_provider_suggestion_api()
-        .call_get_default_suggestions(store, &opts)? {
+    match bindings
+        .component_search_suggestion_provider_suggestion_api()
+        .call_get_default_suggestions(store, &opts)?
+    {
         Ok(list) => {
             println!("\nDefault suggestions — {} results:", list.len());
-            for s in &list { print_suggestion(s); }
-            if list.is_empty() { println!("  (no results)"); }
+            for s in &list {
+                print_suggestion(s);
+            }
+            if list.is_empty() {
+                println!("  (no results)");
+            }
         }
         Err(e) => println!("Plugin error: {e}"),
     }
@@ -297,18 +395,24 @@ fn print_suggestion(s: &exports::component::search_suggestion_provider::types::S
         Suggestion::Entity(e) => {
             use exports::component::search_suggestion_provider::types::EntityType;
             let kind = match e.kind {
-                EntityType::Track    => "TRACK   ",
-                EntityType::Artist   => "ARTIST  ",
-                EntityType::Album    => "ALBUM   ",
+                EntityType::Track => "TRACK   ",
+                EntityType::Artist => "ARTIST  ",
+                EntityType::Album => "ALBUM   ",
                 EntityType::Playlist => "PLAYLIST",
-                EntityType::Genre    => "GENRE   ",
-                EntityType::Unknown  => "?       ",
+                EntityType::Genre => "GENRE   ",
+                EntityType::Unknown => "?       ",
             };
-            let sub = e.subtitle.as_deref().map(|s| format!("  — {s}")).unwrap_or_default();
+            let sub = e
+                .subtitle
+                .as_deref()
+                .map(|s| format!("  — {s}"))
+                .unwrap_or_default();
             println!("  [{kind}] [id: {}]  {}{sub}", e.id, e.title);
             if let Some(art) = &e.thumbnail {
                 println!("             thumb: {}", art.url);
-                if let Some(lo) = &art.url_low { println!("               low: {lo}"); }
+                if let Some(lo) = &art.url_low {
+                    println!("               low: {lo}");
+                }
             }
         }
     }

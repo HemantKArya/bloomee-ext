@@ -5,46 +5,57 @@ use std::fs;
 use std::path::Path;
 
 // ── Embedded bex-core snapshot (bundled at compile time) ─────────────────────
-const BCK_CARGO_TOML:    &str = include_str!("../assets/bex-core/Cargo.toml");
-const BCK_LIB_RS:        &str = include_str!("../assets/bex-core/src/lib.rs");
-const BCK_MACROS_RS:     &str = include_str!("../assets/bex-core/src/macros.rs");
-const BCK_RESOLVER_RS:   &str = include_str!("../assets/bex-core/src/resolver.rs");
-const BCK_LYRICS_RS:     &str = include_str!("../assets/bex-core/src/lyrics.rs");
-const BCK_CHART_RS:      &str = include_str!("../assets/bex-core/src/chart.rs");
+const BCK_CARGO_TOML: &str = include_str!("../assets/bex-core/Cargo.toml");
+const BCK_LIB_RS: &str = include_str!("../assets/bex-core/src/lib.rs");
+const BCK_MACROS_RS: &str = include_str!("../assets/bex-core/src/macros.rs");
+const BCK_RESOLVER_RS: &str = include_str!("../assets/bex-core/src/resolver.rs");
+const BCK_LYRICS_RS: &str = include_str!("../assets/bex-core/src/lyrics.rs");
+const BCK_CHART_RS: &str = include_str!("../assets/bex-core/src/chart.rs");
 const BCK_SUGGESTION_RS: &str = include_str!("../assets/bex-core/src/suggestion.rs");
-const BCK_IMPORTER_RS:   &str = include_str!("../assets/bex-core/src/importer.rs");
-const BCW_RESOLVER:      &str = include_str!("../assets/bex-core/wit/resolver/content-resolver.wit");
-const BCW_LYRICS:        &str = include_str!("../assets/bex-core/wit/lyrics/lyrics-provider.wit");
-const BCW_CHART:         &str = include_str!("../assets/bex-core/wit/chart/chart-provider.wit");
-const BCW_SUGGESTION:    &str = include_str!("../assets/bex-core/wit/suggestion/search-suggestion-provider.wit");
-const BCW_SCROBBLER:     &str = include_str!("../assets/bex-core/wit/scrobbler/scrobbler.wit");
-const BCW_IMPORTER:      &str = include_str!("../assets/bex-core/wit/importer/content-importer.wit");
+const BCK_IMPORTER_RS: &str = include_str!("../assets/bex-core/src/importer.rs");
+const BCW_RESOLVER: &str = include_str!("../assets/bex-core/wit/resolver/content-resolver.wit");
+const BCW_LYRICS: &str = include_str!("../assets/bex-core/wit/lyrics/lyrics-provider.wit");
+const BCW_CHART: &str = include_str!("../assets/bex-core/wit/chart/chart-provider.wit");
+const BCW_SUGGESTION: &str =
+    include_str!("../assets/bex-core/wit/suggestion/search-suggestion-provider.wit");
+const BCW_SCROBBLER: &str = include_str!("../assets/bex-core/wit/scrobbler/scrobbler.wit");
+const BCW_IMPORTER: &str = include_str!("../assets/bex-core/wit/importer/content-importer.wit");
 
 /// Extract a complete bex-core source tree into `<plugin>/bex-core/`.
 /// This makes every created plugin self-contained — no external path needed.
 fn extract_bex_core(plugin_dir: &Path) -> Result<()> {
     let core = plugin_dir.join("bex-core");
-    let src  = core.join("src");
-    let wit  = core.join("wit");
-    for sub in &["resolver", "lyrics", "chart", "suggestion", "scrobbler", "importer"] {
+    let src = core.join("src");
+    let wit = core.join("wit");
+    for sub in &[
+        "resolver",
+        "lyrics",
+        "chart",
+        "suggestion",
+        "scrobbler",
+        "importer",
+    ] {
         fs::create_dir_all(wit.join(sub))?;
     }
     fs::create_dir_all(&src)?;
 
-    fs::write(core.join("Cargo.toml"),          BCK_CARGO_TOML)?;
-    fs::write(src.join("lib.rs"),               BCK_LIB_RS)?;
-    fs::write(src.join("macros.rs"),            BCK_MACROS_RS)?;
-    fs::write(src.join("resolver.rs"),          BCK_RESOLVER_RS)?;
-    fs::write(src.join("lyrics.rs"),            BCK_LYRICS_RS)?;
-    fs::write(src.join("chart.rs"),             BCK_CHART_RS)?;
-    fs::write(src.join("suggestion.rs"),        BCK_SUGGESTION_RS)?;
-    fs::write(src.join("importer.rs"),          BCK_IMPORTER_RS)?;
-    fs::write(wit.join("resolver/content-resolver.wit"),                BCW_RESOLVER)?;
-    fs::write(wit.join("lyrics/lyrics-provider.wit"),                   BCW_LYRICS)?;
-    fs::write(wit.join("chart/chart-provider.wit"),                     BCW_CHART)?;
-    fs::write(wit.join("suggestion/search-suggestion-provider.wit"),    BCW_SUGGESTION)?;
-    fs::write(wit.join("scrobbler/scrobbler.wit"),                      BCW_SCROBBLER)?;
-    fs::write(wit.join("importer/content-importer.wit"),                BCW_IMPORTER)?;
+    fs::write(core.join("Cargo.toml"), BCK_CARGO_TOML)?;
+    fs::write(src.join("lib.rs"), BCK_LIB_RS)?;
+    fs::write(src.join("macros.rs"), BCK_MACROS_RS)?;
+    fs::write(src.join("resolver.rs"), BCK_RESOLVER_RS)?;
+    fs::write(src.join("lyrics.rs"), BCK_LYRICS_RS)?;
+    fs::write(src.join("chart.rs"), BCK_CHART_RS)?;
+    fs::write(src.join("suggestion.rs"), BCK_SUGGESTION_RS)?;
+    fs::write(src.join("importer.rs"), BCK_IMPORTER_RS)?;
+    fs::write(wit.join("resolver/content-resolver.wit"), BCW_RESOLVER)?;
+    fs::write(wit.join("lyrics/lyrics-provider.wit"), BCW_LYRICS)?;
+    fs::write(wit.join("chart/chart-provider.wit"), BCW_CHART)?;
+    fs::write(
+        wit.join("suggestion/search-suggestion-provider.wit"),
+        BCW_SUGGESTION,
+    )?;
+    fs::write(wit.join("scrobbler/scrobbler.wit"), BCW_SCROBBLER)?;
+    fs::write(wit.join("importer/content-importer.wit"), BCW_IMPORTER)?;
     Ok(())
 }
 
@@ -76,8 +87,7 @@ pub fn run_create() -> Result<()> {
         "search-suggestion-provider"
     };
 
-    let plugin_name = Text::new("Plugin name (kebab-case, e.g. my-music-service):")
-        .prompt()?;
+    let plugin_name = Text::new("Plugin name (kebab-case, e.g. my-music-service):").prompt()?;
     if plugin_name.is_empty() {
         anyhow::bail!("Plugin name cannot be empty.");
     }
@@ -87,9 +97,13 @@ pub fn run_create() -> Result<()> {
 
     let author_name = Text::new("Author / publisher name:").prompt()?;
     let publisher_url = Text::new("Publisher URL (optional, Enter to skip):")
-        .with_default("").prompt().unwrap_or_default();
+        .with_default("")
+        .prompt()
+        .unwrap_or_default();
     let publisher_contact = Text::new("Contact email or social (optional, Enter to skip):")
-        .with_default("").prompt().unwrap_or_default();
+        .with_default("")
+        .prompt()
+        .unwrap_or_default();
     let description = Text::new("Short description:").prompt()?;
 
     println!("\nCreating `{}`…", plugin_name);
@@ -129,6 +143,14 @@ crate-type = ["cdylib"]
 
 [package.metadata.component]
 package = "component:{world}"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+debug = false
 "#,
         name = plugin_name,
         desc = description,
@@ -143,10 +165,14 @@ package = "component:{world}"
         .collect::<String>();
     let plugin_id = plugin_name.replace('-', "");
     let timestamp = current_timestamp();
-    let maybe_url = if publisher_url.is_empty() { String::new() } else {
+    let maybe_url = if publisher_url.is_empty() {
+        String::new()
+    } else {
         format!(", \"url\": \"{}\"", publisher_url)
     };
-    let maybe_contact = if publisher_contact.is_empty() { String::new() } else {
+    let maybe_contact = if publisher_contact.is_empty() {
+        String::new()
+    } else {
         format!(", \"contact\": \"{}\"", publisher_contact)
     };
     let resolver_field = if archetype == "content-resolver" {
@@ -156,13 +182,13 @@ package = "component:{world}"
     };
     let manifest = format!(
         r#"{{
-  "manifest_version": "1.0",
   "id": "{archetype}.{author_id}.{plugin_id}",
   "name": "{display_name}",
-  "version": "0.1.0",
+  "version": "1",
   "type": "{archetype}",
   "publisher": {{"name": "{author_name}"{maybe_url}{maybe_contact}}},
   "description": "{desc}"{resolver_field},
+  "manifest_version": "1.0",
   "created_at": "{timestamp}",
   "last_updated": "{timestamp}"
 }}
@@ -226,11 +252,8 @@ fn template_chart(name: &str) -> String {
 //!
 //! HTTP calls go through `ext::http`; persistent data through `ext::storage`.
 
-use bex_core::chart::{{
-    exports::component::chart_provider::chart_api::{{ChartItem, ChartSummary, Trend}},
-    ext::http,
-    Guest,
-}};
+// Available: use bex_core::chart::ext::http;  // for HTTP calls
+use bex_core::chart::{{ChartItem, ChartSummary, Guest}};
 
 struct Component;
 
@@ -242,9 +265,8 @@ impl Guest for Component {{
         //     .json().map_err(|e| e.to_string())?;
         Ok(vec![ChartSummary {{
             id: "top-50".to_string(),
-            name: "Top 50".to_string(),
+            title: "Top 50".to_string(),
             description: Some("The 50 most-played tracks this week.".to_string()),
-            frequency: Some("weekly".to_string()),
             thumbnail: None,
         }}])
     }}
@@ -272,9 +294,9 @@ fn template_lyrics(name: &str) -> String {
 //! - `search`           — full-text search by query string
 //! - `get_lyrics_by_id` — direct fetch when you already have a song ID
 
+// Available: use bex_core::lyrics::ext::http;  // for HTTP calls
 use bex_core::lyrics::{{
-    component::lyrics_provider::types::{{Lyrics, LyricsMatch, LyricsMetadata, TrackMetadata}},
-    ext::http,
+    types::{{Lyrics, LyricsMatch, LyricsMetadata, TrackMetadata}},
     Guest,
 }};
 
@@ -287,8 +309,8 @@ impl Guest for Component {{
         // Example using lrclib.net:
         // let url = format!(
         //     "https://lrclib.net/api/get?artist_name={{}}&track_name={{}}",
-        //     urlencoding::encode(&meta.artist_name.unwrap_or_default()),
-        //     urlencoding::encode(&meta.track_name),
+        //     urlencoding::encode(&meta.artist),
+        //     urlencoding::encode(&meta.title),
         // );
         // let resp = http::get(&url).send().map_err(|e| e.to_string())?;
         // if resp.status == 404 {{ return Ok(None); }}
@@ -325,16 +347,15 @@ fn template_resolver(name: &str) -> String {
 //!
 //! All HTTP calls use `ext::http`; cache tokens with `ext::storage`.
 
+// Available: use bex_core::resolver::ext::http;  // for HTTP calls
 use bex_core::resolver::{{
-    component::content_resolver::{{
-        data_source::{{
-            AlbumDetails, ArtistDetails, Guest as DataSourceGuest,
-            PagedAlbums, PagedMediaItems, PagedTracks, PlaylistDetails,
-            SearchFilter, StreamSource,
-        }},
-        discovery::{{Guest as DiscoveryGuest, Section}},
+    data_source::{{
+        AlbumDetails, ArtistDetails, Guest as DataSourceGuest,
+        PagedAlbums, PagedMediaItems, PagedTracks, PlaylistDetails,
+        SearchFilter, StreamSource,
     }},
-    ext::http,
+    discovery::{{Guest as DiscoveryGuest, Section}},
+    types::MediaItem,
 }};
 
 struct Component;
@@ -347,7 +368,7 @@ impl DiscoveryGuest for Component {{
         Ok(vec![])
     }}
 
-    fn load_more(section_id: String, page_token: String) -> Result<Vec<bex_core::resolver::component::content_resolver::types::MediaItem>, String> {{
+    fn load_more(section_id: String, page_token: String) -> Result<Vec<MediaItem>, String> {{
         let _ = (section_id, page_token);
         Ok(vec![])
     }}
@@ -423,11 +444,9 @@ fn template_suggestion(name: &str) -> String {
 //! Return `Suggestion::Query(text)` for plain text completions, or
 //! `Suggestion::Entity(...)` for rich visual cards (track/artist/album thumbnails).
 
+// Available: use bex_core::suggestion::ext::http;  // for HTTP calls
 use bex_core::suggestion::{{
-    component::search_suggestion_provider::{{
-        types::{{Artwork, EntitySuggestion, EntityType, Suggestion, SuggestionOptions}},
-        utils,
-    }},
+    types::{{Suggestion, SuggestionOptions}},
     Guest,
 }};
 
@@ -477,11 +496,9 @@ fn template_importer(name: &str) -> String {
 //!
 //! HTTP calls go through `ext::http`;  persistent data through `ext::storage`.
 
-use bex_core::importer::{{
-    CollectionSummary, CollectionType, Guest, TrackItem, Tracks,
-    ext::http,
-}};
-use serde_json::Value;
+// Available: use bex_core::importer::{{CollectionType, TrackItem, ext::http}};
+// Available: use serde_json::Value;
+use bex_core::importer::{{CollectionSummary, Guest, Tracks}};
 
 struct Component;
 

@@ -52,7 +52,9 @@ pub struct Manifest {
     // The manifest no longer includes an `entry` field.
 }
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Publisher {
@@ -60,4 +62,3 @@ pub struct Publisher {
     pub url: Option<String>,
     pub contact: Option<String>,
 }
-

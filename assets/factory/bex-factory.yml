@@ -41,7 +41,7 @@ jobs:
         run: cargo install cargo-component --locked
 
       - name: Install bex
-        run: cargo install --git "https://github.com/${{ github.repository_owner }}/bloomee-plugin" --bin bex --locked
+        run: cargo install --git "https://github.com/HemantKArya/bloomee-ext" --bin bex --locked
 
       - name: Build and pack all plugins
         run: bex pack-all --dir . --output-dir plugins --skip-failures

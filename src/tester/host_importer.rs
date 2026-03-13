@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
-use wasmtime::component::{bindgen, Component, Linker, ResourceTable};
+use wasmtime::component::{Component, Linker, ResourceTable, bindgen};
 use wasmtime::{Config, Engine, Store};
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiView};
 
@@ -55,13 +55,20 @@ impl HostState {
         })
     }
     fn persist(&self) {
-        PersistentStorage { entries: self.storage.clone() }.save(&self.storage_path);
+        PersistentStorage {
+            entries: self.storage.clone(),
+        }
+        .save(&self.storage_path);
     }
 }
 
 impl WasiView for HostState {
-    fn table(&mut self) -> &mut ResourceTable { &mut self.table }
-    fn ctx(&mut self) -> &mut WasiCtx { &mut self.wasi }
+    fn table(&mut self) -> &mut ResourceTable {
+        &mut self.table
+    }
+    fn ctx(&mut self) -> &mut WasiCtx {
+        &mut self.wasi
+    }
 }
 
 impl component::content_importer::utils::Host for HostState {
@@ -71,12 +78,12 @@ impl component::content_importer::utils::Host for HostState {
         options: component::content_importer::utils::RequestOptions,
     ) -> Result<component::content_importer::utils::HttpResponse, String> {
         let method = match options.method {
-            component::content_importer::utils::HttpMethod::Get     => reqwest::Method::GET,
-            component::content_importer::utils::HttpMethod::Post    => reqwest::Method::POST,
-            component::content_importer::utils::HttpMethod::Put     => reqwest::Method::PUT,
-            component::content_importer::utils::HttpMethod::Delete  => reqwest::Method::DELETE,
-            component::content_importer::utils::HttpMethod::Head    => reqwest::Method::HEAD,
-            component::content_importer::utils::HttpMethod::Patch   => reqwest::Method::PATCH,
+            component::content_importer::utils::HttpMethod::Get => reqwest::Method::GET,
+            component::content_importer::utils::HttpMethod::Post => reqwest::Method::POST,
+            component::content_importer::utils::HttpMethod::Put => reqwest::Method::PUT,
+            component::content_importer::utils::HttpMethod::Delete => reqwest::Method::DELETE,
+            component::content_importer::utils::HttpMethod::Head => reqwest::Method::HEAD,
+            component::content_importer::utils::HttpMethod::Patch => reqwest::Method::PATCH,
             component::content_importer::utils::HttpMethod::Options => reqwest::Method::OPTIONS,
         };
         let mut req = self.http_client.request(method, &url);
@@ -84,27 +91,41 @@ impl component::content_importer::utils::Host for HostState {
             req = req.timeout(std::time::Duration::from_secs(t as u64));
         }
         if let Some(headers) = options.headers {
-            for (k, v) in headers { req = req.header(&k, &v); }
+            for (k, v) in headers {
+                req = req.header(&k, &v);
+            }
         }
-        if let Some(body) = options.body { req = req.body(body); }
+        if let Some(body) = options.body {
+            req = req.body(body);
+        }
         match req.send() {
             Ok(resp) => {
                 let status = resp.status().as_u16();
-                let headers = resp.headers().iter()
+                let headers = resp
+                    .headers()
+                    .iter()
                     .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
                     .collect();
                 let body = resp.bytes().map(|b| b.to_vec()).unwrap_or_default();
-                Ok(component::content_importer::utils::HttpResponse { status, headers, body })
+                Ok(component::content_importer::utils::HttpResponse {
+                    status,
+                    headers,
+                    body,
+                })
             }
             Err(e) => Err(e.to_string()),
         }
     }
 
-    fn random_number(&mut self) -> u64 { rand::random() }
+    fn random_number(&mut self) -> u64 {
+        rand::random()
+    }
 
     fn current_unix_timestamp(&mut self) -> u64 {
         std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
     }
 
     fn storage_set(&mut self, key: String, value: String) -> bool {
@@ -119,7 +140,9 @@ impl component::content_importer::utils::Host for HostState {
 
     fn storage_delete(&mut self, key: String) -> bool {
         let existed = self.storage.remove(&key).is_some();
-        if existed { self.persist(); }
+        if existed {
+            self.persist();
+        }
         existed
     }
 
@@ -137,10 +160,16 @@ pub fn run(wasm_path: &Path) -> Result<()> {
     ContentImporter::add_to_linker(&mut linker, |s| s)?;
     wasmtime_wasi::add_to_linker_sync(&mut linker)?;
 
-    let stem = wasm_path.file_stem().and_then(|s| s.to_str()).unwrap_or("plugin");
+    let stem = wasm_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("plugin");
     let storage_path = PathBuf::from(format!(".bex-storage-{stem}.json"));
     let loaded = PersistentStorage::load(&storage_path).entries.len();
-    println!("  Storage: {} ({loaded} cached entries)", storage_path.display());
+    println!(
+        "  Storage: {} ({loaded} cached entries)",
+        storage_path.display()
+    );
 
     let component = Component::from_file(&engine, wasm_path)?;
     let mut store = Store::new(&engine, HostState::new(storage_path)?);
@@ -155,10 +184,12 @@ pub fn run(wasm_path: &Path) -> Result<()> {
         io::stdout().flush()?;
         let mut line = String::new();
         if stdin.lock().read_line(&mut line)? == 0 {
-            break;  // EOF
+            break; // EOF
         }
         let line = line.trim().to_string();
-        if line.is_empty() { continue; }
+        if line.is_empty() {
+            continue;
+        }
 
         let (cmd, rest) = if let Some(idx) = line.find(' ') {
             (&line[..idx], line[idx + 1..].trim())
@@ -192,7 +223,11 @@ pub fn run(wasm_path: &Path) -> Result<()> {
                     println!("Keys ({}):", keys.len());
                     for k in keys {
                         let v = &s[k];
-                        let disp = if v.len() > 80 { format!("{}…({}B)", &v[..80], v.len()) } else { v.clone() };
+                        let disp = if v.len() > 80 {
+                            format!("{}…({}B)", &v[..80], v.len())
+                        } else {
+                            v.clone()
+                        };
                         println!("  {k}: {disp}");
                     }
                 }
@@ -211,7 +246,10 @@ pub fn run(wasm_path: &Path) -> Result<()> {
                 if key.is_empty() {
                     println!("Usage: storage-set <key> <value>");
                 } else {
-                    store.data_mut().storage.insert(key.to_string(), val.to_string());
+                    store
+                        .data_mut()
+                        .storage
+                        .insert(key.to_string(), val.to_string());
                     store.data_mut().persist();
                     println!("Stored: {key} = {}…", &val[..val.len().min(50)]);
                 }
@@ -223,60 +261,87 @@ pub fn run(wasm_path: &Path) -> Result<()> {
                     println!("Usage: storage-del <key>");
                 } else {
                     let existed = store.data_mut().storage.remove(key).is_some();
-                    if existed { store.data_mut().persist(); println!("Deleted: {key}"); }
-                    else { println!("Key not found: {key}"); }
+                    if existed {
+                        store.data_mut().persist();
+                        println!("Deleted: {key}");
+                    } else {
+                        println!("Key not found: {key}");
+                    }
                 }
             }
 
             "check" => {
-                if rest.is_empty() { println!("Usage: check <url>"); continue; }
-                match bindings.component_content_importer_importer()
+                if rest.is_empty() {
+                    println!("Usage: check <url>");
+                    continue;
+                }
+                match bindings
+                    .component_content_importer_importer()
                     .call_can_handle_url(&mut store, rest)
                 {
-                    Ok(true)  => println!("✓ Plugin CAN handle this URL"),
+                    Ok(true) => println!("✓ Plugin CAN handle this URL"),
                     Ok(false) => println!("✗ Plugin cannot handle this URL"),
-                    Err(e)    => println!("Error: {e}"),
+                    Err(e) => println!("Error: {e}"),
                 }
             }
 
             "info" => {
-                if rest.is_empty() { println!("Usage: info <url>"); continue; }
-                match bindings.component_content_importer_importer()
+                if rest.is_empty() {
+                    println!("Usage: info <url>");
+                    continue;
+                }
+                match bindings
+                    .component_content_importer_importer()
                     .call_get_collection_info(&mut store, rest)
                 {
                     Ok(Ok(info)) => print_collection_info(&info),
-                    Ok(Err(e))   => println!("Plugin error: {e}"),
-                    Err(e)       => println!("Host error: {e}"),
+                    Ok(Err(e)) => println!("Plugin error: {e}"),
+                    Err(e) => println!("Host error: {e}"),
                 }
             }
 
             "tracks" => {
-                if rest.is_empty() { println!("Usage: tracks <url>"); continue; }
-                match bindings.component_content_importer_importer()
+                if rest.is_empty() {
+                    println!("Usage: tracks <url>");
+                    continue;
+                }
+                match bindings
+                    .component_content_importer_importer()
                     .call_get_tracks(&mut store, rest)
                 {
                     Ok(Ok(tracks)) => print_tracks(&tracks),
-                    Ok(Err(e))     => println!("Plugin error: {e}"),
-                    Err(e)         => println!("Host error: {e}"),
+                    Ok(Err(e)) => println!("Plugin error: {e}"),
+                    Err(e) => println!("Host error: {e}"),
                 }
             }
 
             "import" => {
-                if rest.is_empty() { println!("Usage: import <url>"); continue; }
+                if rest.is_empty() {
+                    println!("Usage: import <url>");
+                    continue;
+                }
                 // Full import: info + tracks
-                match bindings.component_content_importer_importer()
+                match bindings
+                    .component_content_importer_importer()
                     .call_get_collection_info(&mut store, rest)
                 {
                     Ok(Ok(info)) => print_collection_info(&info),
-                    Ok(Err(e))   => { println!("Info error: {e}"); continue; }
-                    Err(e)       => { println!("Host error: {e}"); continue; }
+                    Ok(Err(e)) => {
+                        println!("Info error: {e}");
+                        continue;
+                    }
+                    Err(e) => {
+                        println!("Host error: {e}");
+                        continue;
+                    }
                 }
-                match bindings.component_content_importer_importer()
+                match bindings
+                    .component_content_importer_importer()
                     .call_get_tracks(&mut store, rest)
                 {
                     Ok(Ok(tracks)) => print_tracks(&tracks),
-                    Ok(Err(e))     => println!("Tracks error: {e}"),
-                    Err(e)         => println!("Host error: {e}"),
+                    Ok(Err(e)) => println!("Tracks error: {e}"),
+                    Err(e) => println!("Host error: {e}"),
                 }
             }
 
@@ -292,7 +357,11 @@ pub fn run(wasm_path: &Path) -> Result<()> {
 fn sep(label: &str) {
     let w = 72usize;
     let label = format!("  {} ", label);
-    let dashes = if label.len() + 2 < w { w - label.len() - 2 } else { 2 };
+    let dashes = if label.len() + 2 < w {
+        w - label.len() - 2
+    } else {
+        2
+    };
     println!("━━{}{}", label, "━".repeat(dashes));
 }
 
@@ -300,25 +369,58 @@ fn print_collection_info(info: &exports::component::content_importer::types::Col
     use exports::component::content_importer::types::CollectionType;
     sep("COLLECTION INFO");
     println!("  title       : {}", info.title);
-    println!("  kind        : {}", match info.kind { CollectionType::Playlist => "playlist", CollectionType::Album => "album" });
-    if let Some(ref d) = info.description { println!("  description : {}", d.chars().take(120).collect::<String>()); }
-    if let Some(ref o) = info.owner        { println!("  owner       : {o}"); }
-    if let Some(ref t) = info.thumbnail_url { println!("  thumbnail   : {}", t.chars().take(80).collect::<String>()); }
-    if let Some(n) = info.track_count      { println!("  tracks      : {n}"); }
+    println!(
+        "  kind        : {}",
+        match info.kind {
+            CollectionType::Playlist => "playlist",
+            CollectionType::Album => "album",
+        }
+    );
+    if let Some(ref d) = info.description {
+        println!(
+            "  description : {}",
+            d.chars().take(120).collect::<String>()
+        );
+    }
+    if let Some(ref o) = info.owner {
+        println!("  owner       : {o}");
+    }
+    if let Some(ref t) = info.thumbnail_url {
+        println!("  thumbnail   : {}", t.chars().take(80).collect::<String>());
+    }
+    if let Some(n) = info.track_count {
+        println!("  tracks      : {n}");
+    }
 }
 
 fn print_tracks(tracks: &exports::component::content_importer::types::Tracks) {
     let items = &tracks.items;
     sep(&format!("TRACKS — {} total", items.len()));
     for (i, t) in items.iter().enumerate().take(30) {
-        let dur = t.duration_ms.map(|ms| {
-            let s = ms / 1000;
-            format!("{}:{:02}", s / 60, s % 60)
-        }).unwrap_or_default();
+        let dur = t
+            .duration_ms
+            .map(|ms| {
+                let s = ms / 1000;
+                format!("{}:{:02}", s / 60, s % 60)
+            })
+            .unwrap_or_default();
         let artists = t.artists.join(", ");
-        let expl = if t.is_explicit == Some(true) { " [E]" } else { "" };
-        println!("  {:>3}. {}{} — {} ({})", i + 1, t.title, expl, artists, dur);
-        if let Some(ref id) = t.source_id { println!("       id: {id}"); }
+        let expl = if t.is_explicit == Some(true) {
+            " [E]"
+        } else {
+            ""
+        };
+        println!(
+            "  {:>3}. {}{} — {} ({})",
+            i + 1,
+            t.title,
+            expl,
+            artists,
+            dur
+        );
+        if let Some(ref id) = t.source_id {
+            println!("       id: {id}");
+        }
     }
     if items.len() > 30 {
         println!("  ... and {} more tracks", items.len() - 30);

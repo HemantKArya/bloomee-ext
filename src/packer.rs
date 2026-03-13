@@ -5,6 +5,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use std::fs;
 use std::fs::File;
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use zstd::stream::write::Encoder as ZstdEncoder;
 
@@ -282,18 +283,36 @@ fn write_factory_index(
         .with_context(|| format!("writing {}", index_path.display()))
 }
 
-/// Return immediate child directories that look like BEX plugin projects
+/// Return all directories under `root` that look like BEX plugin projects
 /// (contain both `manifest.json` and `Cargo.toml`).
 fn find_plugin_dirs(root: &Path) -> Result<Vec<PathBuf>> {
-    let mut dirs: Vec<PathBuf> = fs::read_dir(root)?
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(|path| {
-            path.is_dir()
-                && path.join("manifest.json").exists()
-                && path.join("Cargo.toml").exists()
-        })
-        .collect();
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    let mut queue: VecDeque<PathBuf> = VecDeque::from([root.to_path_buf()]);
+
+    while let Some(current) = queue.pop_front() {
+        for entry in fs::read_dir(&current)?.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if matches!(name.as_ref(), ".git" | "target" | "plugins" | ".venv" | "node_modules") {
+                continue;
+            }
+
+            if path.join("manifest.json").exists() && path.join("Cargo.toml").exists() {
+                dirs.push(path);
+                // A plugin folder can contain large nested build trees (target/, vendored bex-core).
+                // Avoid descending further once the plugin root is found.
+                continue;
+            }
+
+            queue.push_back(path);
+        }
+    }
+
     dirs.sort();
     Ok(dirs)
 }

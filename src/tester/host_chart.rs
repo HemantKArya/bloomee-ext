@@ -2,7 +2,7 @@ use anyhow::Result;
 use inquire::Select;
 use std::collections::HashMap;
 use std::path::Path;
-use wasmtime::component::{bindgen, Component, Linker, ResourceTable};
+use wasmtime::component::{Component, Linker, ResourceTable, bindgen};
 use wasmtime::{Config, Engine, Store};
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiView};
 
@@ -30,8 +30,12 @@ impl HostState {
 }
 
 impl WasiView for HostState {
-    fn table(&mut self) -> &mut ResourceTable { &mut self.table }
-    fn ctx(&mut self) -> &mut WasiCtx { &mut self.wasi }
+    fn table(&mut self) -> &mut ResourceTable {
+        &mut self.table
+    }
+    fn ctx(&mut self) -> &mut WasiCtx {
+        &mut self.wasi
+    }
 }
 
 impl component::chart_provider::utils::Host for HostState {
@@ -54,31 +58,46 @@ impl component::chart_provider::utils::Host for HostState {
             req = req.timeout(std::time::Duration::from_secs(t as u64));
         }
         if let Some(headers) = options.headers {
-            for (k, v) in headers { req = req.header(k, v); }
+            for (k, v) in headers {
+                req = req.header(k, v);
+            }
         }
-        if let Some(body) = options.body { req = req.body(body); }
+        if let Some(body) = options.body {
+            req = req.body(body);
+        }
         match req.send() {
             Ok(resp) => {
                 let status = resp.status().as_u16();
-                let headers = resp.headers().iter()
+                let headers = resp
+                    .headers()
+                    .iter()
                     .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
                     .collect();
                 let body = resp.bytes().map(|b| b.to_vec()).unwrap_or_default();
-                Ok(component::chart_provider::utils::HttpResponse { status, headers, body })
+                Ok(component::chart_provider::utils::HttpResponse {
+                    status,
+                    headers,
+                    body,
+                })
             }
             Err(e) => Err(e.to_string()),
         }
     }
 
-    fn random_number(&mut self) -> u64 { rand::random() }
+    fn random_number(&mut self) -> u64 {
+        rand::random()
+    }
 
     fn current_unix_timestamp(&mut self) -> u64 {
         std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
     }
 
     fn storage_set(&mut self, key: String, value: String) -> bool {
-        self.storage.insert(key, value); true
+        self.storage.insert(key, value);
+        true
     }
 
     fn storage_get(&mut self, key: String) -> Option<String> {
@@ -105,27 +124,41 @@ pub fn run(wasm_path: &Path) -> Result<()> {
     println!("Plugin loaded.\n");
 
     loop {
-        let choice = Select::new("Action:", vec![
-            "1. List charts",
-            "2. Browse chart (select from list)",
-            "3. Browse chart (enter ID)",
-            "Exit",
-        ]).prompt()?;
+        let choice = Select::new(
+            "Action:",
+            vec![
+                "1. List charts",
+                "2. Browse chart (select from list)",
+                "3. Browse chart (enter ID)",
+                "Exit",
+            ],
+        )
+        .prompt()?;
 
         match choice {
             "1. List charts" => list_charts(&bindings, &mut store)?,
             "2. Browse chart (select from list)" => {
                 let charts = match bindings
                     .component_chart_provider_chart_api()
-                    .call_get_charts(&mut store)? {
+                    .call_get_charts(&mut store)?
+                {
                     Ok(v) => v,
-                    Err(e) => { println!("Plugin error: {e}"); continue; }
+                    Err(e) => {
+                        println!("Plugin error: {e}");
+                        continue;
+                    }
                 };
-                if charts.is_empty() { println!("No charts available."); continue; }
-                let labels: Vec<String> = charts.iter()
-                    .map(|c| format!("{} [{}]", c.title, c.id)).collect();
+                if charts.is_empty() {
+                    println!("No charts available.");
+                    continue;
+                }
+                let labels: Vec<String> = charts
+                    .iter()
+                    .map(|c| format!("{} [{}]", c.title, c.id))
+                    .collect();
                 let sel = Select::new("Chart:", labels).prompt()?;
-                let id = sel.rsplit_once('[')
+                let id = sel
+                    .rsplit_once('[')
                     .map(|(_, r)| r.trim_end_matches(']').trim().to_string())
                     .unwrap_or_default();
                 show_chart(&bindings, &mut store, &id)?;
@@ -143,24 +176,31 @@ pub fn run(wasm_path: &Path) -> Result<()> {
 fn sep(label: &str) {
     let w = 72usize;
     let label = format!("  {} ", label);
-    let dashes = if label.len() + 2 < w { w - label.len() - 2 } else { 2 };
+    let dashes = if label.len() + 2 < w {
+        w - label.len() - 2
+    } else {
+        2
+    };
     println!("━━{}{}", label, "━".repeat(dashes));
 }
 
 fn fmt_trend(t: exports::component::chart_provider::chart_api::Trend) -> &'static str {
     use exports::component::chart_provider::chart_api::Trend;
     match t {
-        Trend::Up       => "↑ UP",
-        Trend::Down     => "↓ DOWN",
-        Trend::Same     => "= SAME",
+        Trend::Up => "↑ UP",
+        Trend::Down => "↓ DOWN",
+        Trend::Same => "= SAME",
         Trend::NewEntry => "✦ NEW",
-        Trend::ReEntry  => "↩ RE-ENTRY",
-        Trend::Unknown  => "? -",
+        Trend::ReEntry => "↩ RE-ENTRY",
+        Trend::Unknown => "? -",
     }
 }
 
 fn list_charts(bindings: &ChartProvider, store: &mut Store<HostState>) -> Result<()> {
-    match bindings.component_chart_provider_chart_api().call_get_charts(store)? {
+    match bindings
+        .component_chart_provider_chart_api()
+        .call_get_charts(store)?
+    {
         Err(e) => println!("Plugin error: {e}"),
         Ok(list) => {
             println!("\nCharts available: {}\n", list.len());
@@ -168,11 +208,17 @@ fn list_charts(bindings: &ChartProvider, store: &mut Store<HostState>) -> Result
                 sep(&format!("CHART #{}", i + 1));
                 println!("  id          : {}", c.id);
                 println!("  title       : {}", c.title);
-                if let Some(d) = &c.description { println!("  description : {d}"); }
+                if let Some(d) = &c.description {
+                    println!("  description : {d}");
+                }
                 if let Some(t) = &c.thumbnail {
                     println!("  thumbnail   : {}", t.url);
-                    if let Some(lo) = &t.url_low  { println!("              low: {lo}"); }
-                    if let Some(hi) = &t.url_high { println!("             high: {hi}"); }
+                    if let Some(lo) = &t.url_low {
+                        println!("              low: {lo}");
+                    }
+                    if let Some(hi) = &t.url_high {
+                        println!("             high: {hi}");
+                    }
                 }
             }
         }
@@ -182,7 +228,10 @@ fn list_charts(bindings: &ChartProvider, store: &mut Store<HostState>) -> Result
 
 fn show_chart(bindings: &ChartProvider, store: &mut Store<HostState>, id: &str) -> Result<()> {
     println!("\nFetching chart '{id}'…");
-    match bindings.component_chart_provider_chart_api().call_get_chart_details(store, id)? {
+    match bindings
+        .component_chart_provider_chart_api()
+        .call_get_chart_details(store, id)?
+    {
         Err(e) => println!("Plugin error: {e}"),
         Ok(items) => {
             println!("  {} chart items\n", items.len());
@@ -200,10 +249,22 @@ fn print_chart_item(item: &exports::component::chart_provider::chart_api::ChartI
 
     sep(&format!("#{:>4}  {}", item.rank, trend));
 
-    let change_str = item.change.map(|c| format!("{c}")).unwrap_or_else(|| "–".into());
-    let peak_str   = item.peak_rank.map(|p| format!("#{p}")).unwrap_or_else(|| "–".into());
-    let weeks_str  = item.weeks_on_chart.map(|w| format!("{w}")).unwrap_or_else(|| "–".into());
-    println!("  change: {:<6}  peak: {:<6}  weeks on chart: {}", change_str, peak_str, weeks_str);
+    let change_str = item
+        .change
+        .map(|c| format!("{c}"))
+        .unwrap_or_else(|| "–".into());
+    let peak_str = item
+        .peak_rank
+        .map(|p| format!("#{p}"))
+        .unwrap_or_else(|| "–".into());
+    let weeks_str = item
+        .weeks_on_chart
+        .map(|w| format!("{w}"))
+        .unwrap_or_else(|| "–".into());
+    println!(
+        "  change: {:<6}  peak: {:<6}  weeks on chart: {}",
+        change_str, peak_str, weeks_str
+    );
 
     match &item.item {
         MediaItem::Track(t) => {
@@ -212,15 +273,21 @@ fn print_chart_item(item: &exports::component::chart_provider::chart_api::ChartI
             let explicit = if t.is_explicit { " [EXPLICIT]" } else { "" };
             println!("  title   : {}{explicit}", t.title);
             println!("  artists : {}", t.artists);
-            if let Some(alb) = &t.album { println!("  album   : {alb}"); }
-            if let Some(ms)  = t.duration_ms {
+            if let Some(alb) = &t.album {
+                println!("  album   : {alb}");
+            }
+            if let Some(ms) = t.duration_ms {
                 let s = ms / 1000;
                 println!("  duration: {}:{:02} ({ms}ms)", s / 60, s % 60);
             }
             if let Some(th) = &t.thumbnail {
                 println!("  thumb   : {}", th.url);
-                if let Some(lo) = &th.url_low  { println!("            low:  {lo}"); }
-                if let Some(hi) = &th.url_high { println!("            high: {hi}"); }
+                if let Some(lo) = &th.url_low {
+                    println!("            low:  {lo}");
+                }
+                if let Some(hi) = &th.url_high {
+                    println!("            high: {hi}");
+                }
             }
         }
         MediaItem::Album(a) => {
@@ -229,11 +296,17 @@ fn print_chart_item(item: &exports::component::chart_provider::chart_api::ChartI
             println!("  title   : {}", a.title);
             let artists = a.artists.join(", ");
             println!("  artists : {artists}");
-            if let Some(y) = a.year { println!("  year    : {y}"); }
+            if let Some(y) = a.year {
+                println!("  year    : {y}");
+            }
             if let Some(th) = &a.thumbnail {
                 println!("  thumb   : {}", th.url);
-                if let Some(lo) = &th.url_low  { println!("            low:  {lo}"); }
-                if let Some(hi) = &th.url_high { println!("            high: {hi}"); }
+                if let Some(lo) = &th.url_low {
+                    println!("            low:  {lo}");
+                }
+                if let Some(hi) = &th.url_high {
+                    println!("            high: {hi}");
+                }
             }
         }
         MediaItem::Artist(a) => {
@@ -242,8 +315,12 @@ fn print_chart_item(item: &exports::component::chart_provider::chart_api::ChartI
             println!("  name    : {}", a.name);
             if let Some(th) = &a.thumbnail {
                 println!("  thumb   : {}", th.url);
-                if let Some(lo) = &th.url_low  { println!("            low:  {lo}"); }
-                if let Some(hi) = &th.url_high { println!("            high: {hi}"); }
+                if let Some(lo) = &th.url_low {
+                    println!("            low:  {lo}");
+                }
+                if let Some(hi) = &th.url_high {
+                    println!("            high: {hi}");
+                }
             }
         }
     }

@@ -1,5 +1,5 @@
-use clap::{Parser, Subcommand};
 use anyhow::Result;
+use clap::{Parser, Subcommand};
 
 mod builder;
 mod factory;
@@ -21,8 +21,8 @@ Create, build, test, and pack Bloomee plugin extensions.
   bex test                run the plugin against an embedded interactive host
   bex pack [PATH]         bundle into a distributable .bex archive
   bex pack-all [--dir D]  build + pack all plugins, collect into plugins/ dir
+    bex update [PATH]       bump manifest version and refresh last_updated
     bex factory init        prepare a plugin-factory repo for GitHub releases
-    bex time update         refresh manifest last_updated timestamp
 ")]
 struct Cli {
     #[command(subcommand)]
@@ -72,16 +72,16 @@ enum Commands {
         skip_failures: bool,
     },
 
+    /// Bump manifest version and refresh last_updated timestamp
+    Update {
+        /// Path to the plugin directory (default: current directory)
+        path: Option<String>,
+    },
+
     /// Prepare a plugin-factory repository with workflow assets and ignore rules
     Factory {
         #[command(subcommand)]
         command: FactoryCommands,
-    },
-
-    /// Manifest timestamp helpers
-    Time {
-        #[command(subcommand)]
-        command: TimeCommands,
     },
 }
 
@@ -103,16 +103,6 @@ enum FactoryCommands {
     },
 }
 
-#[derive(Subcommand)]
-enum TimeCommands {
-    /// Update manifest.json last_updated in a plugin directory
-    Update {
-        /// Directory to update (default: current directory)
-        #[arg(long)]
-        dir: Option<String>,
-    },
-}
-
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -125,6 +115,11 @@ fn main() -> Result<()> {
             output_dir,
             skip_failures,
         } => packer::run_pack_all(dir.as_deref(), output_dir.as_deref(), *skip_failures)?,
+        Commands::Update { path } => {
+            let (version, timestamp) = manifest::bump_manifest_version(path.as_deref())?;
+            println!("Updated manifest version -> {version}");
+            println!("Updated manifest last_updated -> {timestamp}");
+        }
         Commands::Test { wasm } => tester::run_test(wasm.as_deref())?,
         Commands::Factory { command } => match command {
             FactoryCommands::Init {
@@ -133,14 +128,7 @@ fn main() -> Result<()> {
                 no_git_init,
             } => factory::run_factory_init(dir.as_deref(), *force, !*no_git_init)?,
         },
-        Commands::Time { command } => match command {
-            TimeCommands::Update { dir } => {
-                let timestamp = manifest::update_manifest_last_updated(dir.as_deref())?;
-                println!("Updated manifest last_updated → {timestamp}");
-            }
-        },
     }
 
     Ok(())
 }
-

@@ -2,7 +2,7 @@ use anyhow::Result;
 use inquire::{Select, Text};
 use std::collections::HashMap;
 use std::path::Path;
-use wasmtime::component::{bindgen, Component, Linker, ResourceTable};
+use wasmtime::component::{Component, Linker, ResourceTable, bindgen};
 use wasmtime::{Config, Engine, Store};
 use wasmtime_wasi::{WasiCtx, WasiCtxBuilder, WasiView};
 
@@ -42,8 +42,12 @@ impl HostState {
 }
 
 impl WasiView for HostState {
-    fn table(&mut self) -> &mut ResourceTable { &mut self.table }
-    fn ctx(&mut self) -> &mut WasiCtx { &mut self.wasi }
+    fn table(&mut self) -> &mut ResourceTable {
+        &mut self.table
+    }
+    fn ctx(&mut self) -> &mut WasiCtx {
+        &mut self.wasi
+    }
 }
 
 impl component::content_resolver::utils::Host for HostState {
@@ -53,30 +57,40 @@ impl component::content_resolver::utils::Host for HostState {
         options: component::content_resolver::utils::RequestOptions,
     ) -> Result<component::content_resolver::utils::HttpResponse, String> {
         let method = match options.method {
-            component::content_resolver::utils::HttpMethod::Get    => reqwest::Method::GET,
-            component::content_resolver::utils::HttpMethod::Post   => reqwest::Method::POST,
-            component::content_resolver::utils::HttpMethod::Put    => reqwest::Method::PUT,
+            component::content_resolver::utils::HttpMethod::Get => reqwest::Method::GET,
+            component::content_resolver::utils::HttpMethod::Post => reqwest::Method::POST,
+            component::content_resolver::utils::HttpMethod::Put => reqwest::Method::PUT,
             component::content_resolver::utils::HttpMethod::Delete => reqwest::Method::DELETE,
-            component::content_resolver::utils::HttpMethod::Head   => reqwest::Method::HEAD,
-            component::content_resolver::utils::HttpMethod::Patch  => reqwest::Method::PATCH,
+            component::content_resolver::utils::HttpMethod::Head => reqwest::Method::HEAD,
+            component::content_resolver::utils::HttpMethod::Patch => reqwest::Method::PATCH,
             component::content_resolver::utils::HttpMethod::Options => reqwest::Method::OPTIONS,
         };
 
         let now = self.current_unix_timestamp();
         let cacheable = method == reqwest::Method::GET;
         let cache_key = if cacheable {
-            let mut parts: Vec<String> = options.headers.as_ref()
-                .map(|h| h.iter().map(|(k, v)| format!("{}:{}", k.to_ascii_lowercase(), v)).collect())
+            let mut parts: Vec<String> = options
+                .headers
+                .as_ref()
+                .map(|h| {
+                    h.iter()
+                        .map(|(k, v)| format!("{}:{}", k.to_ascii_lowercase(), v))
+                        .collect()
+                })
                 .unwrap_or_default();
             parts.sort();
             Some(format!("GET|{}|{}", url, parts.join("|")))
-        } else { None };
+        } else {
+            None
+        };
 
         if let Some(ref key) = cache_key {
             if let Some(hit) = self.http_cache.get(key) {
                 if now <= hit.expires_at {
                     return Ok(component::content_resolver::utils::HttpResponse {
-                        status: hit.status, headers: hit.headers.clone(), body: hit.body.clone(),
+                        status: hit.status,
+                        headers: hit.headers.clone(),
+                        body: hit.body.clone(),
                     });
                 }
             }
@@ -87,40 +101,60 @@ impl component::content_resolver::utils::Host for HostState {
             req = req.timeout(std::time::Duration::from_secs(t as u64));
         }
         if let Some(headers) = options.headers {
-            for (k, v) in headers { req = req.header(k, v); }
+            for (k, v) in headers {
+                req = req.header(k, v);
+            }
         }
-        if let Some(body) = options.body { req = req.body(body); }
+        if let Some(body) = options.body {
+            req = req.body(body);
+        }
 
         match req.send() {
             Ok(resp) => {
                 let status = resp.status().as_u16();
-                let headers: Vec<(String, String)> = resp.headers().iter()
+                let headers: Vec<(String, String)> = resp
+                    .headers()
+                    .iter()
                     .map(|(k, v)| (k.as_str().to_string(), v.to_str().unwrap_or("").to_string()))
                     .collect();
                 let body = resp.bytes().map(|b| b.to_vec()).unwrap_or_default();
                 if let Some(key) = cache_key {
                     if status >= 200 && status < 300 {
-                        self.http_cache.insert(key, CachedHttpResponse {
-                            expires_at: now + self.http_cache_ttl_secs,
-                            status, headers: headers.clone(), body: body.clone(),
-                        });
+                        self.http_cache.insert(
+                            key,
+                            CachedHttpResponse {
+                                expires_at: now + self.http_cache_ttl_secs,
+                                status,
+                                headers: headers.clone(),
+                                body: body.clone(),
+                            },
+                        );
                     }
                 }
-                Ok(component::content_resolver::utils::HttpResponse { status, headers, body })
+                Ok(component::content_resolver::utils::HttpResponse {
+                    status,
+                    headers,
+                    body,
+                })
             }
             Err(e) => Err(e.to_string()),
         }
     }
 
-    fn random_number(&mut self) -> u64 { rand::random() }
+    fn random_number(&mut self) -> u64 {
+        rand::random()
+    }
 
     fn current_unix_timestamp(&mut self) -> u64 {
         std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
     }
 
     fn storage_set(&mut self, key: String, value: String) -> bool {
-        self.storage.insert(key, value); true
+        self.storage.insert(key, value);
+        true
     }
 
     fn storage_get(&mut self, key: String) -> Option<String> {
@@ -137,7 +171,11 @@ impl component::content_resolver::utils::Host for HostState {
 fn sep(label: &str) {
     let w = 72usize;
     let label = format!("  {} ", label);
-    let dashes = if label.len() + 2 < w { w - label.len() - 2 } else { 2 };
+    let dashes = if label.len() + 2 < w {
+        w - label.len() - 2
+    } else {
+        2
+    };
     println!("━━{}{}", label, "━".repeat(dashes));
 }
 
@@ -150,15 +188,21 @@ fn fmt_duration(ms: u64) -> String {
 
 fn fmt_expires(ts: u64) -> String {
     let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
     if ts >= now {
         let diff = ts - now;
         let h = diff / 3600;
         let m = (diff % 3600) / 60;
         let s = diff % 60;
-        if h > 0 { format!("{ts}  (in {h}h{m:02}m)") }
-        else if m > 0 { format!("{ts}  (in {m}m{s:02}s)") }
-        else { format!("{ts}  (in {s}s)") }
+        if h > 0 {
+            format!("{ts}  (in {h}h{m:02}m)")
+        } else if m > 0 {
+            format!("{ts}  (in {m}m{s:02}s)")
+        } else {
+            format!("{ts}  (in {s}s)")
+        }
     } else {
         format!("{ts}  (EXPIRED)")
     }
@@ -167,52 +211,73 @@ fn fmt_expires(ts: u64) -> String {
 fn fmt_layout(l: &exports::component::content_resolver::types::ImageLayout) -> &'static str {
     use exports::component::content_resolver::types::ImageLayout;
     match l {
-        ImageLayout::Square    => "square",
-        ImageLayout::Portrait  => "portrait",
+        ImageLayout::Square => "square",
+        ImageLayout::Portrait => "portrait",
         ImageLayout::Landscape => "landscape",
-        ImageLayout::Banner    => "banner",
-        ImageLayout::Circular  => "circular",
+        ImageLayout::Banner => "banner",
+        ImageLayout::Circular => "circular",
     }
 }
 
 fn fmt_segment_kind(k: &exports::component::content_resolver::types::SegmentKind) -> &'static str {
     use exports::component::content_resolver::types::SegmentKind;
     match k {
-        SegmentKind::Chapter     => "chapter",
-        SegmentKind::Sponsor     => "sponsor",
-        SegmentKind::Intro       => "intro",
-        SegmentKind::Outro       => "outro",
+        SegmentKind::Chapter => "chapter",
+        SegmentKind::Sponsor => "sponsor",
+        SegmentKind::Intro => "intro",
+        SegmentKind::Outro => "outro",
         SegmentKind::Interaction => "interaction",
-        SegmentKind::Silence     => "silence",
+        SegmentKind::Silence => "silence",
     }
 }
 
-fn print_segment(s: &exports::component::content_resolver::types::MediaSegment, idx: usize, total: usize) {
+fn print_segment(
+    s: &exports::component::content_resolver::types::MediaSegment,
+    idx: usize,
+    total: usize,
+) {
     sep(&format!("SEGMENT {idx}/{total}"));
     let start_s = s.start_ms / 1000;
-    let end_s   = s.end_ms   / 1000;
+    let end_s = s.end_ms / 1000;
     println!("  kind     : {}", fmt_segment_kind(&s.kind));
-    println!("  start    : {}:{:02} ({}ms)", start_s / 60, start_s % 60, s.start_ms);
-    println!("  end      : {}:{:02} ({}ms)", end_s   / 60, end_s   % 60, s.end_ms);
-    if let Some(t) = &s.title { println!("  title    : {t}"); }
+    println!(
+        "  start    : {}:{:02} ({}ms)",
+        start_s / 60,
+        start_s % 60,
+        s.start_ms
+    );
+    println!(
+        "  end      : {}:{:02} ({}ms)",
+        end_s / 60,
+        end_s % 60,
+        s.end_ms
+    );
+    if let Some(t) = &s.title {
+        println!("  title    : {t}");
+    }
 }
 
 fn fmt_quality(q: &exports::component::content_resolver::data_source::Quality) -> &'static str {
     use exports::component::content_resolver::data_source::Quality;
     match q {
-        Quality::Low      => "Low",
-        Quality::Medium   => "Medium",
-        Quality::High     => "High",
+        Quality::Low => "Low",
+        Quality::Medium => "Medium",
+        Quality::High => "High",
         Quality::Lossless => "Lossless",
     }
 }
 
 fn print_artwork(art: &exports::component::content_resolver::types::Artwork, indent: &str) {
-    println!("{}thumb    : {} [{}]", indent, art.url, fmt_layout(&art.layout));
+    println!(
+        "{}thumb    : {} [{}]",
+        indent,
+        art.url,
+        fmt_layout(&art.layout)
+    );
     match (&art.url_low, &art.url_high) {
         (None, None) => {}
         (lo, hi) => {
-            let low  = lo.as_deref().unwrap_or("(none)");
+            let low = lo.as_deref().unwrap_or("(none)");
             let high = hi.as_deref().unwrap_or("(none)");
             println!("{}           low: {low}", indent);
             println!("{}          high: {high}", indent);
@@ -221,101 +286,182 @@ fn print_artwork(art: &exports::component::content_resolver::types::Artwork, ind
 }
 
 fn print_track(t: &exports::component::content_resolver::types::Track, idx: Option<usize>) {
-    let label = if let Some(i) = idx { format!("TRACK #{i}") } else { "TRACK".to_string() };
+    let label = if let Some(i) = idx {
+        format!("TRACK #{i}")
+    } else {
+        "TRACK".to_string()
+    };
     sep(&label);
     let explicit = if t.is_explicit { " [EXPLICIT]" } else { "" };
     println!("  id       : {}", t.id);
     println!("  title    : {}{explicit}", t.title);
-    let dur = t.duration_ms.map(fmt_duration).unwrap_or_else(|| "(unknown)".into());
+    let dur = t
+        .duration_ms
+        .map(fmt_duration)
+        .unwrap_or_else(|| "(unknown)".into());
     println!("  duration : {dur}");
-    if let Some(u) = &t.url { println!("  url      : {u}"); }
-    let artists: Vec<String> = t.artists.iter()
+    if let Some(u) = &t.url {
+        println!("  url      : {u}");
+    }
+    let artists: Vec<String> = t
+        .artists
+        .iter()
         .map(|a| format!("{} [id:{}]", a.name, a.id))
         .collect();
     println!("  artists  : {}", artists.join(", "));
     if let Some(alb) = &t.album {
         let year = alb.year.map(|y| format!(" ({y})")).unwrap_or_default();
         let alb_artists: Vec<&str> = alb.artists.iter().map(|a| a.name.as_str()).collect();
-        println!("  album    : {}{year} — {} [id:{}]", alb.title, alb_artists.join(", "), alb.id);
-        if let Some(sub) = &alb.subtitle { println!("             {sub}"); }
+        println!(
+            "  album    : {}{year} — {} [id:{}]",
+            alb.title,
+            alb_artists.join(", "),
+            alb.id
+        );
+        if let Some(sub) = &alb.subtitle {
+            println!("             {sub}");
+        }
     }
     print_artwork(&t.thumbnail, "  ");
     if let Some(lyr) = &t.lyrics {
-        if let Some(plain) = &lyr.plain { println!("  lyrics   : {} chars (plain)", plain.len()); }
-        if let Some(synced) = &lyr.synced { println!("  lyrics   : {} chars (synced)", synced.len()); }
-        if let Some(copy) = &lyr.copyright { println!("  lyr-copy : {copy}"); }
+        if let Some(plain) = &lyr.plain {
+            println!("  lyrics   : {} chars (plain)", plain.len());
+        }
+        if let Some(synced) = &lyr.synced {
+            println!("  lyrics   : {} chars (synced)", synced.len());
+        }
+        if let Some(copy) = &lyr.copyright {
+            println!("  lyr-copy : {copy}");
+        }
     }
 }
 
-fn print_album_summary(a: &exports::component::content_resolver::types::AlbumSummary, indent: &str) {
+fn print_album_summary(
+    a: &exports::component::content_resolver::types::AlbumSummary,
+    indent: &str,
+) {
     let year = a.year.map(|y| format!(" ({y})")).unwrap_or_default();
     let artists: Vec<&str> = a.artists.iter().map(|x| x.name.as_str()).collect();
     println!("{indent}id       : {}", a.id);
-    println!("{indent}title    : {}{year} — {}", a.title, artists.join(", "));
-    if let Some(sub) = &a.subtitle { println!("{indent}subtitle : {sub}"); }
-    if let Some(u) = &a.url { println!("{indent}url      : {u}"); }
-    if let Some(art) = &a.thumbnail { print_artwork(art, indent); }
+    println!(
+        "{indent}title    : {}{year} — {}",
+        a.title,
+        artists.join(", ")
+    );
+    if let Some(sub) = &a.subtitle {
+        println!("{indent}subtitle : {sub}");
+    }
+    if let Some(u) = &a.url {
+        println!("{indent}url      : {u}");
+    }
+    if let Some(art) = &a.thumbnail {
+        print_artwork(art, indent);
+    }
 }
 
-fn print_artist_summary(a: &exports::component::content_resolver::types::ArtistSummary, indent: &str) {
+fn print_artist_summary(
+    a: &exports::component::content_resolver::types::ArtistSummary,
+    indent: &str,
+) {
     println!("{indent}id       : {}", a.id);
     println!("{indent}name     : {}", a.name);
-    if let Some(sub) = &a.subtitle { println!("{indent}subtitle : {sub}"); }
-    if let Some(u) = &a.url { println!("{indent}url      : {u}"); }
-    if let Some(art) = &a.thumbnail { print_artwork(art, indent); }
+    if let Some(sub) = &a.subtitle {
+        println!("{indent}subtitle : {sub}");
+    }
+    if let Some(u) = &a.url {
+        println!("{indent}url      : {u}");
+    }
+    if let Some(art) = &a.thumbnail {
+        print_artwork(art, indent);
+    }
 }
 
-fn print_stream(s: &exports::component::content_resolver::data_source::StreamSource, idx: usize, total: usize) {
+fn print_stream(
+    s: &exports::component::content_resolver::data_source::StreamSource,
+    idx: usize,
+    total: usize,
+) {
     sep(&format!("STREAM {idx}/{total}"));
     println!("  quality  : {}", fmt_quality(&s.quality));
     println!("  format   : {}", s.format);
     println!("  url      : {}", s.url);
-    if let Some(exp) = s.expires_at { println!("  expires  : {}", fmt_expires(exp)); }
+    if let Some(exp) = s.expires_at {
+        println!("  expires  : {}", fmt_expires(exp));
+    }
     match &s.headers {
         Some(h) if !h.is_empty() => {
             println!("  headers  :");
-            for (k, v) in h { println!("    {k}: {v}"); }
+            for (k, v) in h {
+                println!("    {k}: {v}");
+            }
         }
         _ => println!("  headers  : (none)"),
     }
 }
 
-fn print_section(s: &exports::component::content_resolver::discovery::Section, idx: usize, total: usize) {
+fn print_section(
+    s: &exports::component::content_resolver::discovery::Section,
+    idx: usize,
+    total: usize,
+) {
     use exports::component::content_resolver::discovery::SectionType;
     let card = match s.card_type {
         SectionType::Carousel => "carousel",
-        SectionType::Grid     => "grid",
-        SectionType::Vlist    => "vlist",
+        SectionType::Grid => "grid",
+        SectionType::Vlist => "vlist",
     };
     sep(&format!("SECTION {idx}/{total}"));
     println!("  id       : {}", s.id);
     println!("  title    : {}", s.title);
-    if let Some(sub) = &s.subtitle { println!("  subtitle : {sub}"); }
+    if let Some(sub) = &s.subtitle {
+        println!("  subtitle : {sub}");
+    }
     println!("  layout   : {card}  ({} items)", s.items.len());
-    if let Some(ml) = &s.more_link { println!("  more_link: {ml}"); }
+    if let Some(ml) = &s.more_link {
+        println!("  more_link: {ml}");
+    }
 }
 
-fn print_media_item(item: &exports::component::content_resolver::types::MediaItem, idx: Option<usize>) {
+fn print_media_item(
+    item: &exports::component::content_resolver::types::MediaItem,
+    idx: Option<usize>,
+) {
     use exports::component::content_resolver::types::MediaItem;
     match item {
-        MediaItem::Track(t)    => print_track(t, idx),
-        MediaItem::Album(a)    => {
-            let label = if let Some(i) = idx { format!("ALBUM #{i}") } else { "ALBUM".to_string() };
+        MediaItem::Track(t) => print_track(t, idx),
+        MediaItem::Album(a) => {
+            let label = if let Some(i) = idx {
+                format!("ALBUM #{i}")
+            } else {
+                "ALBUM".to_string()
+            };
             sep(&label);
             print_album_summary(a, "  ");
         }
-        MediaItem::Artist(a)   => {
-            let label = if let Some(i) = idx { format!("ARTIST #{i}") } else { "ARTIST".to_string() };
+        MediaItem::Artist(a) => {
+            let label = if let Some(i) = idx {
+                format!("ARTIST #{i}")
+            } else {
+                "ARTIST".to_string()
+            };
             sep(&label);
             print_artist_summary(a, "  ");
         }
         MediaItem::Playlist(p) => {
-            let label = if let Some(i) = idx { format!("PLAYLIST #{i}") } else { "PLAYLIST".to_string() };
+            let label = if let Some(i) = idx {
+                format!("PLAYLIST #{i}")
+            } else {
+                "PLAYLIST".to_string()
+            };
             sep(&label);
             println!("  id       : {}", p.id);
             println!("  title    : {}", p.title);
-            if let Some(o) = &p.owner { println!("  owner    : {o}"); }
-            if let Some(u) = &p.url { println!("  url      : {u}"); }
+            if let Some(o) = &p.owner {
+                println!("  owner    : {o}");
+            }
+            if let Some(u) = &p.url {
+                println!("  url      : {u}");
+            }
             print_artwork(&p.thumbnail, "  ");
         }
     }
@@ -338,26 +484,30 @@ pub fn run(wasm_path: &Path) -> Result<()> {
     println!("Plugin loaded.\n");
 
     loop {
-        let choice = Select::new("Action:", vec![
-            "1. Home sections",
-            "2. Search",
-            "3. Album details",
-            "4. Artist details",
-            "5. Playlist details",
-            "6. Get streams (track ID)",
-            "7. Radio tracks",
-            "8. Get segments (track ID)",
-            "Exit",
-        ]).prompt()?;
+        let choice = Select::new(
+            "Action:",
+            vec![
+                "1. Home sections",
+                "2. Search",
+                "3. Album details",
+                "4. Artist details",
+                "5. Playlist details",
+                "6. Get streams (track ID)",
+                "7. Radio tracks",
+                "8. Get segments (track ID)",
+                "Exit",
+            ],
+        )
+        .prompt()?;
 
         match choice {
             "1. Home sections" => cmd_home(&bindings, &mut store)?,
-            "2. Search"        => cmd_search(&bindings, &mut store)?,
+            "2. Search" => cmd_search(&bindings, &mut store)?,
             "3. Album details" => cmd_album(&bindings, &mut store)?,
-            "4. Artist details"=> cmd_artist(&bindings, &mut store)?,
+            "4. Artist details" => cmd_artist(&bindings, &mut store)?,
             "5. Playlist details" => cmd_playlist(&bindings, &mut store)?,
             "6. Get streams (track ID)" => cmd_streams(&bindings, &mut store)?,
-            "7. Radio tracks"  => cmd_radio(&bindings, &mut store)?,
+            "7. Radio tracks" => cmd_radio(&bindings, &mut store)?,
             "8. Get segments (track ID)" => cmd_segments(&bindings, &mut store)?,
             _ => break,
         }
@@ -366,8 +516,10 @@ pub fn run(wasm_path: &Path) -> Result<()> {
 }
 
 fn cmd_home(bindings: &ContentResolver, store: &mut Store<HostState>) -> Result<()> {
-    match bindings.component_content_resolver_discovery()
-        .call_get_home_sections(&mut *store)? {
+    match bindings
+        .component_content_resolver_discovery()
+        .call_get_home_sections(&mut *store)?
+    {
         Err(e) => println!("Plugin error: {e}"),
         Ok(sections) => {
             println!("\nHome sections: {}", sections.len());
@@ -381,10 +533,13 @@ fn cmd_home(bindings: &ContentResolver, store: &mut Store<HostState>) -> Result<
                     let ans = Select::new(
                         &format!("Load more for '{}'?", s.title),
                         vec!["Yes", "Skip"],
-                    ).prompt()?;
+                    )
+                    .prompt()?;
                     if ans == "Yes" {
-                        match bindings.component_content_resolver_discovery()
-                            .call_load_more(&mut *store, &s.id, tok)? {
+                        match bindings
+                            .component_content_resolver_discovery()
+                            .call_load_more(&mut *store, &s.id, tok)?
+                        {
                             Ok(items) => {
                                 println!("  + {} more items:", items.len());
                                 for (j, item) in items.iter().enumerate() {
@@ -403,30 +558,44 @@ fn cmd_home(bindings: &ContentResolver, store: &mut Store<HostState>) -> Result<
 
 fn cmd_search(bindings: &ContentResolver, store: &mut Store<HostState>) -> Result<()> {
     let query = Text::new("Query:").prompt()?;
-    let filter_str = Select::new("Filter:", vec!["All", "Songs", "Albums", "Artists", "Playlists"]).prompt()?;
+    let filter_str = Select::new(
+        "Filter:",
+        vec!["All", "Songs", "Albums", "Artists", "Playlists"],
+    )
+    .prompt()?;
     use exports::component::content_resolver::data_source::SearchFilter;
     let filter = match filter_str {
-        "Songs"     => SearchFilter::Track,
-        "Albums"    => SearchFilter::Album,
-        "Artists"   => SearchFilter::Artist,
+        "Songs" => SearchFilter::Track,
+        "Albums" => SearchFilter::Album,
+        "Artists" => SearchFilter::Artist,
         "Playlists" => SearchFilter::Playlist,
-        _           => SearchFilter::All,
+        _ => SearchFilter::All,
     };
     let mut token: Option<String> = None;
     let mut page = 1usize;
     loop {
-        match bindings.component_content_resolver_data_source()
-            .call_search(&mut *store, &query, filter, token.as_deref())? {
-            Err(e) => { println!("Plugin error: {e}"); break; }
+        match bindings
+            .component_content_resolver_data_source()
+            .call_search(&mut *store, &query, filter, token.as_deref())?
+        {
+            Err(e) => {
+                println!("Plugin error: {e}");
+                break;
+            }
             Ok(paged) => {
                 println!("\nPage {page} — {} results:", paged.items.len());
                 for (i, item) in paged.items.iter().enumerate() {
                     print_media_item(item, Some(i + 1));
                 }
                 token = paged.next_page_token;
-                if token.is_none() { println!("  (end of results)"); break; }
+                if token.is_none() {
+                    println!("  (end of results)");
+                    break;
+                }
                 let next = Select::new("", vec!["Next Page", "Back to Menu"]).prompt()?;
-                if next == "Back to Menu" { break; }
+                if next == "Back to Menu" {
+                    break;
+                }
                 page += 1;
             }
         }
@@ -436,13 +605,17 @@ fn cmd_search(bindings: &ContentResolver, store: &mut Store<HostState>) -> Resul
 
 fn cmd_album(bindings: &ContentResolver, store: &mut Store<HostState>) -> Result<()> {
     let id = Text::new("Album ID:").prompt()?;
-    match bindings.component_content_resolver_data_source()
-        .call_get_album_details(&mut *store, &id)? {
+    match bindings
+        .component_content_resolver_data_source()
+        .call_get_album_details(&mut *store, &id)?
+    {
         Err(e) => println!("Plugin error: {e}"),
         Ok(d) => {
             sep("ALBUM DETAILS");
             print_album_summary(&d.summary, "  ");
-            if let Some(desc) = &d.description { println!("  desc     : {desc}"); }
+            if let Some(desc) = &d.description {
+                println!("  desc     : {desc}");
+            }
             println!();
             println!("  Tracks: {}", d.tracks.items.len());
             for (i, t) in d.tracks.items.iter().enumerate() {
@@ -453,12 +626,21 @@ fn cmd_album(bindings: &ContentResolver, store: &mut Store<HostState>) -> Result
             while let Some(tok) = token {
                 println!("  (page token: {tok})");
                 let ans = Select::new("Load more tracks?", vec!["Yes", "Stop"]).prompt()?;
-                if ans == "Stop" { break; }
-                match bindings.component_content_resolver_data_source()
-                    .call_more_album_tracks(&mut *store, &id, &tok)? {
-                    Err(e) => { println!("Plugin error: {e}"); break; }
+                if ans == "Stop" {
+                    break;
+                }
+                match bindings
+                    .component_content_resolver_data_source()
+                    .call_more_album_tracks(&mut *store, &id, &tok)?
+                {
+                    Err(e) => {
+                        println!("Plugin error: {e}");
+                        break;
+                    }
                     Ok(p) => {
-                        for (i, t) in p.items.iter().enumerate() { print_track(t, Some(i + 1)); }
+                        for (i, t) in p.items.iter().enumerate() {
+                            print_track(t, Some(i + 1));
+                        }
                         token = p.next_page_token;
                     }
                 }
@@ -470,16 +652,22 @@ fn cmd_album(bindings: &ContentResolver, store: &mut Store<HostState>) -> Result
 
 fn cmd_artist(bindings: &ContentResolver, store: &mut Store<HostState>) -> Result<()> {
     let id = Text::new("Artist ID:").prompt()?;
-    match bindings.component_content_resolver_data_source()
-        .call_get_artist_details(&mut *store, &id)? {
+    match bindings
+        .component_content_resolver_data_source()
+        .call_get_artist_details(&mut *store, &id)?
+    {
         Err(e) => println!("Plugin error: {e}"),
         Ok(d) => {
             sep("ARTIST DETAILS");
             print_artist_summary(&d.summary, "  ");
-            if let Some(desc) = &d.description { println!("  desc     : {desc}"); }
+            if let Some(desc) = &d.description {
+                println!("  desc     : {desc}");
+            }
 
             println!("\n  Top tracks: {}", d.top_tracks.len());
-            for (i, t) in d.top_tracks.iter().enumerate() { print_track(t, Some(i + 1)); }
+            for (i, t) in d.top_tracks.iter().enumerate() {
+                print_track(t, Some(i + 1));
+            }
 
             println!("\n  Albums: {}", d.albums.items.len());
             for (i, a) in d.albums.items.iter().enumerate() {
@@ -490,10 +678,17 @@ fn cmd_artist(bindings: &ContentResolver, store: &mut Store<HostState>) -> Resul
             let mut alb_tok = d.albums.next_page_token;
             while let Some(tok) = alb_tok {
                 let ans = Select::new("Load more albums?", vec!["Yes", "Stop"]).prompt()?;
-                if ans == "Stop" { break; }
-                match bindings.component_content_resolver_data_source()
-                    .call_more_artist_albums(&mut *store, &id, &tok)? {
-                    Err(e) => { println!("Plugin error: {e}"); break; }
+                if ans == "Stop" {
+                    break;
+                }
+                match bindings
+                    .component_content_resolver_data_source()
+                    .call_more_artist_albums(&mut *store, &id, &tok)?
+                {
+                    Err(e) => {
+                        println!("Plugin error: {e}");
+                        break;
+                    }
                     Ok(p) => {
                         for (i, a) in p.items.iter().enumerate() {
                             sep(&format!("ALBUM #{}", d.albums.items.len() + i + 1));
@@ -518,28 +713,47 @@ fn cmd_artist(bindings: &ContentResolver, store: &mut Store<HostState>) -> Resul
 
 fn cmd_playlist(bindings: &ContentResolver, store: &mut Store<HostState>) -> Result<()> {
     let id = Text::new("Playlist ID:").prompt()?;
-    match bindings.component_content_resolver_data_source()
-        .call_get_playlist_details(&mut *store, &id)? {
+    match bindings
+        .component_content_resolver_data_source()
+        .call_get_playlist_details(&mut *store, &id)?
+    {
         Err(e) => println!("Plugin error: {e}"),
         Ok(d) => {
             sep("PLAYLIST DETAILS");
             println!("  id       : {}", d.summary.id);
             println!("  title    : {}", d.summary.title);
-            if let Some(o) = &d.summary.owner { println!("  owner    : {o}"); }
-            if let Some(u) = &d.summary.url { println!("  url      : {u}"); }
+            if let Some(o) = &d.summary.owner {
+                println!("  owner    : {o}");
+            }
+            if let Some(u) = &d.summary.url {
+                println!("  url      : {u}");
+            }
             print_artwork(&d.summary.thumbnail, "  ");
-            if let Some(desc) = &d.description { println!("  desc     : {desc}"); }
+            if let Some(desc) = &d.description {
+                println!("  desc     : {desc}");
+            }
             println!("\n  Tracks: {}", d.tracks.items.len());
-            for (i, t) in d.tracks.items.iter().enumerate() { print_track(t, Some(i + 1)); }
+            for (i, t) in d.tracks.items.iter().enumerate() {
+                print_track(t, Some(i + 1));
+            }
             let mut tok = d.tracks.next_page_token;
             while let Some(t) = tok {
                 let ans = Select::new("Load more tracks?", vec!["Yes", "Stop"]).prompt()?;
-                if ans == "Stop" { break; }
-                match bindings.component_content_resolver_data_source()
-                    .call_more_playlist_tracks(&mut *store, &id, &t)? {
-                    Err(e) => { println!("Plugin error: {e}"); break; }
+                if ans == "Stop" {
+                    break;
+                }
+                match bindings
+                    .component_content_resolver_data_source()
+                    .call_more_playlist_tracks(&mut *store, &id, &t)?
+                {
+                    Err(e) => {
+                        println!("Plugin error: {e}");
+                        break;
+                    }
                     Ok(p) => {
-                        for (i, t) in p.items.iter().enumerate() { print_track(t, Some(i + 1)); }
+                        for (i, t) in p.items.iter().enumerate() {
+                            print_track(t, Some(i + 1));
+                        }
                         tok = p.next_page_token;
                     }
                 }
@@ -551,8 +765,10 @@ fn cmd_playlist(bindings: &ContentResolver, store: &mut Store<HostState>) -> Res
 
 fn cmd_streams(bindings: &ContentResolver, store: &mut Store<HostState>) -> Result<()> {
     let id = Text::new("Track ID:").prompt()?;
-    match bindings.component_content_resolver_data_source()
-        .call_get_streams(&mut *store, &id)? {
+    match bindings
+        .component_content_resolver_data_source()
+        .call_get_streams(&mut *store, &id)?
+    {
         Err(e) => println!("Plugin error: {e}"),
         Ok(streams) => {
             println!("\n{} stream(s) for track '{id}':", streams.len());
@@ -566,8 +782,10 @@ fn cmd_streams(bindings: &ContentResolver, store: &mut Store<HostState>) -> Resu
 
 fn cmd_segments(bindings: &ContentResolver, store: &mut Store<HostState>) -> Result<()> {
     let id = Text::new("Track ID:").prompt()?;
-    match bindings.component_content_resolver_data_source()
-        .call_get_segments(&mut *store, &id)? {
+    match bindings
+        .component_content_resolver_data_source()
+        .call_get_segments(&mut *store, &id)?
+    {
         Err(e) => println!("Plugin error: {e}"),
         Ok(segs) => {
             if segs.is_empty() {
@@ -588,18 +806,31 @@ fn cmd_radio(bindings: &ContentResolver, store: &mut Store<HostState>) -> Result
     let mut tok: Option<String> = None;
     let mut page = 1usize;
     loop {
-        match bindings.component_content_resolver_data_source()
-            .call_get_radio_tracks(&mut *store, &id, tok.as_deref())? {
-        Err(e) => { println!("Plugin error: {e}"); break; }
-        Ok(paged) => {
-            println!("\nRadio page {page} — {} tracks:", paged.items.len());
-            for (i, t) in paged.items.iter().enumerate() { print_track(t, Some(i + 1)); }
-            tok = paged.next_page_token;
-            if tok.is_none() { println!("  (end)"); break; }
-            let ans = Select::new("", vec!["Next Page", "Stop"]).prompt()?;
-            if ans == "Stop" { break; }
-            page += 1;
-        }}
+        match bindings
+            .component_content_resolver_data_source()
+            .call_get_radio_tracks(&mut *store, &id, tok.as_deref())?
+        {
+            Err(e) => {
+                println!("Plugin error: {e}");
+                break;
+            }
+            Ok(paged) => {
+                println!("\nRadio page {page} — {} tracks:", paged.items.len());
+                for (i, t) in paged.items.iter().enumerate() {
+                    print_track(t, Some(i + 1));
+                }
+                tok = paged.next_page_token;
+                if tok.is_none() {
+                    println!("  (end)");
+                    break;
+                }
+                let ans = Select::new("", vec!["Next Page", "Stop"]).prompt()?;
+                if ans == "Stop" {
+                    break;
+                }
+                page += 1;
+            }
+        }
     }
     Ok(())
 }
