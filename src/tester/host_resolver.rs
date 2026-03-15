@@ -489,12 +489,13 @@ pub fn run(wasm_path: &Path) -> Result<()> {
             vec![
                 "1. Home sections",
                 "2. Search",
-                "3. Album details",
-                "4. Artist details",
-                "5. Playlist details",
-                "6. Get streams (track ID)",
-                "7. Radio tracks",
-                "8. Get segments (track ID)",
+                "3. Track details",
+                "4. Album details",
+                "5. Artist details",
+                "6. Playlist details",
+                "7. Get streams (track ID)",
+                "8. Radio tracks",
+                "9. Get segments (track ID)",
                 "Exit",
             ],
         )
@@ -503,14 +504,27 @@ pub fn run(wasm_path: &Path) -> Result<()> {
         match choice {
             "1. Home sections" => cmd_home(&bindings, &mut store)?,
             "2. Search" => cmd_search(&bindings, &mut store)?,
-            "3. Album details" => cmd_album(&bindings, &mut store)?,
-            "4. Artist details" => cmd_artist(&bindings, &mut store)?,
-            "5. Playlist details" => cmd_playlist(&bindings, &mut store)?,
-            "6. Get streams (track ID)" => cmd_streams(&bindings, &mut store)?,
-            "7. Radio tracks" => cmd_radio(&bindings, &mut store)?,
-            "8. Get segments (track ID)" => cmd_segments(&bindings, &mut store)?,
+            "3. Track details" => cmd_track_details(&bindings, &mut store)?,
+            "4. Album details" => cmd_album(&bindings, &mut store)?,
+            "5. Artist details" => cmd_artist(&bindings, &mut store)?,
+            "6. Playlist details" => cmd_playlist(&bindings, &mut store)?,
+            "7. Get streams (track ID)" => cmd_streams(&bindings, &mut store)?,
+            "8. Radio tracks" => cmd_radio(&bindings, &mut store)?,
+            "9. Get segments (track ID)" => cmd_segments(&bindings, &mut store)?,
             _ => break,
         }
+    }
+    Ok(())
+}
+
+fn cmd_track_details(bindings: &ContentResolver, store: &mut Store<HostState>) -> Result<()> {
+    let id = Text::new("Track ID:").prompt()?;
+    match bindings
+        .component_content_resolver_data_source()
+        .call_get_track_details(&mut *store, &id)?
+    {
+        Err(e) => println!("Plugin error: {e}"),
+        Ok(track) => print_track(&track, None),
     }
     Ok(())
 }
