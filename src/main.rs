@@ -48,6 +48,18 @@ enum Commands {
         /// Path to the .wasm component to test (default: target/bex/plugin.wasm)
         #[arg(short, long)]
         wasm: Option<String>,
+
+        /// Optional non-interactive action to run: home, search, streams, track, album, artist, playlist, radio
+        #[arg(short, long)]
+        action: Option<String>,
+
+        /// Query / ID input for non-interactive action
+        #[arg(short, long)]
+        input: Option<String>,
+
+        /// Filter for search (all, songs/track, albums, artists, playlists)
+        #[arg(short, long)]
+        filter: Option<String>,
     },
 
     /// Pack the compiled plugin + manifest into a .bex archive
@@ -120,7 +132,17 @@ fn main() -> Result<()> {
             println!("Updated manifest version -> {version}");
             println!("Updated manifest last_updated -> {timestamp}");
         }
-        Commands::Test { wasm } => tester::run_test(wasm.as_deref())?,
+        Commands::Test {
+            wasm,
+            action,
+            input,
+            filter,
+        } => tester::run_test(
+            wasm.as_deref(),
+            action.as_deref(),
+            input.as_deref(),
+            filter.as_deref(),
+        )?,
         Commands::Factory { command } => match command {
             FactoryCommands::Init {
                 dir,

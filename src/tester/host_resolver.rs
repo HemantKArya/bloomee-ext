@@ -470,6 +470,15 @@ fn print_media_item(
 // ── Main interactive loop ─────────────────────────────────────────────────────
 
 pub fn run(wasm_path: &Path) -> Result<()> {
+    run_with_action(wasm_path, None, None, None)
+}
+
+pub fn run_with_action(
+    wasm_path: &Path,
+    action: Option<&str>,
+    input: Option<&str>,
+    filter: Option<&str>,
+) -> Result<()> {
     let mut config = Config::new();
     config.wasm_component_model(true);
     let engine = Engine::new(&config)?;
@@ -482,6 +491,53 @@ pub fn run(wasm_path: &Path) -> Result<()> {
     let mut store = Store::new(&engine, HostState::new()?);
     let (bindings, _) = ContentResolver::instantiate(&mut store, &component, &linker)?;
     println!("Plugin loaded.\n");
+
+    if let Some(act) = action {
+        match act.to_lowercase().as_str() {
+            "home" => {
+                direct_home(&bindings, &mut store)?;
+            }
+            "search" => {
+                let q = input.unwrap_or("Adele");
+                let f = match filter.unwrap_or("all").to_lowercase().as_str() {
+                    "songs" | "song" | "track" | "tracks" => exports::component::content_resolver::data_source::SearchFilter::Track,
+                    "albums" | "album" => exports::component::content_resolver::data_source::SearchFilter::Album,
+                    "artists" | "artist" => exports::component::content_resolver::data_source::SearchFilter::Artist,
+                    "playlists" | "playlist" => exports::component::content_resolver::data_source::SearchFilter::Playlist,
+                    _ => exports::component::content_resolver::data_source::SearchFilter::All,
+                };
+                direct_search(&bindings, &mut store, q, f)?;
+            }
+            "streams" | "stream" => {
+                let id = input.unwrap_or("dQw4w9WgXcQ");
+                direct_streams(&bindings, &mut store, id)?;
+            }
+            "track" => {
+                let id = input.unwrap_or("dQw4w9WgXcQ");
+                direct_track_details(&bindings, &mut store, id)?;
+            }
+            "album" => {
+                let id = input.unwrap_or("MPREb_95vHkndm2bV");
+                direct_album(&bindings, &mut store, id)?;
+            }
+            "artist" => {
+                let id = input.unwrap_or("UC0C-w0YjGpqDXGB8IHb662A");
+                direct_artist(&bindings, &mut store, id)?;
+            }
+            "playlist" => {
+                let id = input.unwrap_or("RDCLAK5uy_kset8DisdE7LSD4TNjEVGeKvilbmnFSXo");
+                direct_playlist(&bindings, &mut store, id)?;
+            }
+            "radio" => {
+                let id = input.unwrap_or("dQw4w9WgXcQ");
+                direct_radio(&bindings, &mut store, id)?;
+            }
+            other => {
+                anyhow::bail!("Unknown test action: {other}. Available: home, search, streams, track, album, artist, playlist, radio");
+            }
+        }
+        return Ok(());
+    }
 
     loop {
         let choice = Select::new(
@@ -848,3 +904,170 @@ fn cmd_radio(bindings: &ContentResolver, store: &mut Store<HostState>) -> Result
     }
     Ok(())
 }
+
+fn direct_home(bindings: &ContentResolver, store: &mut Store<HostState>) -> Result<()> {
+    println!("Testing get_home_sections...");
+    match bindings
+        .component_content_resolver_discovery()
+        .call_get_home_sections(&mut *store)?
+    {
+        Err(e) => println!("Plugin error: {e}"),
+        Ok(sections) => {
+            println!("\nHome sections returned: {}", sections.len());
+            for (i, s) in sections.iter().take(5).enumerate() {
+                print_section(s, i + 1, sections.len());
+                for (j, item) in s.items.iter().take(3).enumerate() {
+                    print_media_item(item, Some(j + 1));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn direct_search(
+    bindings: &ContentResolver,
+    store: &mut Store<HostState>,
+    query: &str,
+    filter: exports::component::content_resolver::data_source::SearchFilter,
+) -> Result<()> {
+    println!("Testing search query='{query}' filter={:?}...", filter);
+    match bindings
+        .component_content_resolver_data_source()
+        .call_search(&mut *store, query, filter, None)?
+    {
+        Err(e) => println!("Plugin error: {e}"),
+        Ok(paged) => {
+            println!("\nSearch returned {} items:", paged.items.len());
+            for (i, item) in paged.items.iter().take(10).enumerate() {
+                print_media_item(item, Some(i + 1));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn direct_streams(
+    bindings: &ContentResolver,
+    store: &mut Store<HostState>,
+    id: &str,
+) -> Result<()> {
+    println!("Testing get_streams track_id='{id}'...");
+    match bindings
+        .component_content_resolver_data_source()
+        .call_get_streams(&mut *store, id)?
+    {
+        Err(e) => println!("Plugin error: {e}"),
+        Ok(streams) => {
+            println!("\n{} stream(s) returned for track '{id}':", streams.len());
+            for (i, s) in streams.iter().enumerate() {
+                print_stream(s, i + 1, streams.len());
+            }
+        }
+    }
+    Ok(())
+}
+
+fn direct_track_details(
+    bindings: &ContentResolver,
+    store: &mut Store<HostState>,
+    id: &str,
+) -> Result<()> {
+    println!("Testing get_track_details id='{id}'...");
+    match bindings
+        .component_content_resolver_data_source()
+        .call_get_track_details(&mut *store, id)?
+    {
+        Err(e) => println!("Plugin error: {e}"),
+        Ok(track) => print_track(&track, None),
+    }
+    Ok(())
+}
+
+fn direct_album(
+    bindings: &ContentResolver,
+    store: &mut Store<HostState>,
+    id: &str,
+) -> Result<()> {
+    println!("Testing get_album_details id='{id}'...");
+    match bindings
+        .component_content_resolver_data_source()
+        .call_get_album_details(&mut *store, id)?
+    {
+        Err(e) => println!("Plugin error: {e}"),
+        Ok(d) => {
+            print_album_summary(&d.summary, "  ");
+            println!("  Tracks: {}", d.tracks.items.len());
+            for (i, t) in d.tracks.items.iter().take(5).enumerate() {
+                print_track(t, Some(i + 1));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn direct_artist(
+    bindings: &ContentResolver,
+    store: &mut Store<HostState>,
+    id: &str,
+) -> Result<()> {
+    println!("Testing get_artist_details id='{id}'...");
+    match bindings
+        .component_content_resolver_data_source()
+        .call_get_artist_details(&mut *store, id)?
+    {
+        Err(e) => println!("Plugin error: {e}"),
+        Ok(d) => {
+            print_artist_summary(&d.summary, "  ");
+            println!("\n  Top tracks: {}", d.top_tracks.len());
+            for (i, t) in d.top_tracks.iter().take(5).enumerate() {
+                print_track(t, Some(i + 1));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn direct_playlist(
+    bindings: &ContentResolver,
+    store: &mut Store<HostState>,
+    id: &str,
+) -> Result<()> {
+    println!("Testing get_playlist_details id='{id}'...");
+    match bindings
+        .component_content_resolver_data_source()
+        .call_get_playlist_details(&mut *store, id)?
+    {
+        Err(e) => println!("Plugin error: {e}"),
+        Ok(d) => {
+            println!("  title    : {}", d.summary.title);
+            println!("  Tracks: {}", d.tracks.items.len());
+            for (i, t) in d.tracks.items.iter().take(5).enumerate() {
+                print_track(t, Some(i + 1));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn direct_radio(
+    bindings: &ContentResolver,
+    store: &mut Store<HostState>,
+    id: &str,
+) -> Result<()> {
+    println!("Testing get_radio_tracks id='{id}'...");
+    match bindings
+        .component_content_resolver_data_source()
+        .call_get_radio_tracks(&mut *store, id, None)?
+    {
+        Err(e) => println!("Plugin error: {e}"),
+        Ok(paged) => {
+            println!("\nRadio tracks: {}", paged.items.len());
+            for (i, t) in paged.items.iter().take(5).enumerate() {
+                print_track(t, Some(i + 1));
+            }
+        }
+    }
+    Ok(())
+}
+
